@@ -13,7 +13,7 @@ import BatteryCharging60Icon from '@mui/icons-material/BatteryCharging60';
 import Battery20Icon from '@mui/icons-material/Battery20';
 import BatteryCharging20Icon from '@mui/icons-material/BatteryCharging20';
 import ErrorIcon from '@mui/icons-material/Error';
-import PowerOffIcon from '@mui/icons-material/PowerOff'; 
+import PowerOffIcon from '@mui/icons-material/PowerOff'; // Added for Power Cut
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
@@ -34,18 +34,6 @@ const pulse = keyframes`
 `;
 
 const useStyles = makeStyles()((theme) => ({
-  // FIX: Force the button to match the 72px virtual slot exactly
-  listItemButton: {
-    height: '72px',
-    padding: theme.spacing(0, 2),
-    margin: 0,
-    '&.Mui-selected': {
-      backgroundColor: theme.palette.action.selected,
-      '&:hover': {
-        backgroundColor: theme.palette.action.hover,
-      },
-    },
-  },
   icon: {
     width: '25px',
     height: '25px',
@@ -104,6 +92,7 @@ const useStyles = makeStyles()((theme) => ({
   warning: { color: theme.palette.warning.main },
   error: { color: theme.palette.error.main },
   neutral: { color: theme.palette.neutral.main },
+  selected: { backgroundColor: theme.palette.action.selected },
 }));
 
 const DeviceRow = ({ devices, index, style }) => {
@@ -125,13 +114,15 @@ const DeviceRow = ({ devices, index, style }) => {
   const hasIgnition = position?.attributes.hasOwnProperty('ignition');
   const isIgnitionOn = hasIgnition && position.attributes.ignition;
 
+  // Power Cut Logic
   const powerValue = position?.attributes.hasOwnProperty('power') ? parseFloat(position.attributes.power) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
   const getSpeedData = () => {
     if (position && position.hasOwnProperty('speed')) {
       const speedValue = position.speed;
-      if (speedValue > 0 && isDataStale) return { value: '?', unit: '', isStale: true };
+      const showQuestion = speedValue > 0 && isDataStale;
+      if (showQuestion) return { value: '?', unit: '', isStale: true };
       const formatted = formatSpeed(speedValue, speedUnit, t).replace(/\.\d+/, '');
       const parts = formatted.split(' ');
       return {
@@ -182,7 +173,7 @@ const DeviceRow = ({ devices, index, style }) => {
         onClick={() => dispatch(devicesActions.selectId(item.id))}
         disabled={!admin && item.disabled}
         selected={selectedDeviceId === item.id}
-        className={classes.listItemButton} // Applied fix here
+        className={selectedDeviceId === item.id ? classes.selected : null}
       >
         <ListItemAvatar>
           <Tooltip title={hasIgnition ? `${t('positionIgnition')}: ${formatBoolean(isIgnitionOn, t)}` : ""}>
