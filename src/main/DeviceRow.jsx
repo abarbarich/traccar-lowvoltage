@@ -9,10 +9,11 @@ import {
 import BatteryFullIcon from '@mui/icons-material/BatteryFull';
 import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
 import Battery60Icon from '@mui/icons-material/Battery60';
-import BatteryCharging60Icon from '@mui/icons-material/Battery60';
+import BatteryCharging60Icon from '@mui/icons-material/BatteryCharging60';
 import Battery20Icon from '@mui/icons-material/Battery20';
 import BatteryCharging20Icon from '@mui/icons-material/BatteryCharging20';
 import ErrorIcon from '@mui/icons-material/Error';
+import PowerOffIcon from '@mui/icons-material/PowerOff'; // Added for Power Cut
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
@@ -26,7 +27,6 @@ import { useAttributePreference } from '../common/util/preferences';
 
 dayjs.extend(relativeTime);
 
-// Pulse animation
 const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
@@ -43,13 +43,11 @@ const useStyles = makeStyles()((theme) => ({
     transition: 'all 0.3s ease-in-out',
     border: '4px solid transparent',
   },
-  // Ignition is ON and data is FRESH
   ignitionActive: {
     border: `4px solid ${theme.palette.success.main}`,
     boxShadow: `0 0 10px ${theme.palette.success.main}, 0 0 20px ${theme.palette.success.main}66`,
     animation: `${pulse} 2s infinite`,
   },
-  // Ignition is ON but data is STALE (Stop pulsing, dim the glow)
   ignitionStale: {
     border: `4px solid ${theme.palette.success.main}aa`,
     boxShadow: `0 0 5px ${theme.palette.success.main}44`,
@@ -82,6 +80,10 @@ const useStyles = makeStyles()((theme) => ({
     color: theme.palette.text.secondary,
     marginRight: '4px',
   },
+  voltageError: {
+    color: theme.palette.error.main,
+    fontWeight: 900,
+  },
   statusText: {
     display: 'block',
     fontSize: '0.75rem',
@@ -94,7 +96,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 const DeviceRow = ({ devices, index, style }) => {
-  const { classes } = useStyles();
+  const { classes, cx } = useStyles();
   const dispatch = useDispatch();
   const t = useTranslation();
 
@@ -108,19 +110,19 @@ const DeviceRow = ({ devices, index, style }) => {
   const deviceSecondary = useAttributePreference('deviceSecondary', '');
   const speedUnit = useAttributePreference('speedUnit', 'kn');
 
-  // Unified Stale Logic (10 minutes)
   const isDataStale = item.lastUpdate ? dayjs().diff(dayjs(item.lastUpdate), 'minute') > 10 : true;
-
   const hasIgnition = position?.attributes.hasOwnProperty('ignition');
   const isIgnitionOn = hasIgnition && position.attributes.ignition;
+
+  // Power Cut Logic
+  const powerValue = position?.attributes.hasOwnProperty('power') ? parseFloat(position.attributes.power) : null;
+  const isPowerCut = powerValue !== null && powerValue < 1.0;
 
   const getSpeedData = () => {
     if (position && position.hasOwnProperty('speed')) {
       const speedValue = position.speed;
       const showQuestion = speedValue > 0 && isDataStale;
-
       if (showQuestion) return { value: '?', unit: '', isStale: true };
-
       const formatted = formatSpeed(speedValue, speedUnit, t).replace(/\.\d+/, '');
       const parts = formatted.split(' ');
       return {
@@ -156,7 +158,6 @@ const DeviceRow = ({ devices, index, style }) => {
     );
   };
 
-  // Helper to determine Avatar Class
   const getAvatarClass = () => {
     if (!hasIgnition) return '';
     if (isIgnitionOn) {
@@ -194,7 +195,6 @@ const DeviceRow = ({ devices, index, style }) => {
         
         {position && (
           <div className={classes.rightColumn}>
-            {/* Speed Section */}
             {speedData && (
               <Tooltip title={t('positionSpeed')}>
                 <div className={classes.speedRow}>
@@ -225,12 +225,16 @@ const DeviceRow = ({ devices, index, style }) => {
               </Tooltip>
             )}
 
-            {/* Icons & Voltage Row */}
             <div className={classes.iconRow}>
-              {position.attributes.hasOwnProperty('power') && (
-                <Typography className={classes.voltageText}>
-                  {Number(position.attributes.power).toFixed(1)}v
-                </Typography>
+              {powerValue !== null && (
+                <Tooltip title={isPowerCut ? "MAIN POWER CUT" : "External Voltage"}>
+                   <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {isPowerCut && <PowerOffIcon color="error" sx={{ fontSize: '0.9rem', mr: 0.3 }} />}
+                    <Typography className={cx(classes.voltageText, { [classes.voltageError]: isPowerCut })}>
+                      {powerValue.toFixed(1)}v
+                    </Typography>
+                  </div>
+                </Tooltip>
               )}
 
               {position.attributes.hasOwnProperty('alarm') && (
