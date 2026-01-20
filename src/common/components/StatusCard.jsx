@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -22,9 +22,10 @@ import RouteIcon from '@mui/icons-material/Route';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'; // The new pop-out icon
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
 import { useTranslation } from './LocalizationProvider';
 import RemoveDialog from './RemoveDialog';
@@ -37,6 +38,8 @@ import { useAttributePreference } from '../util/preferences';
 import fetchOrThrow from '../util/fetchOrThrow';
 import { mapIconKey, mapIcons } from '../../map/core/preloadImages';
 import { formatSpeed } from '../util/formatter';
+
+dayjs.extend(relativeTime);
 
 const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
@@ -64,7 +67,7 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing(1, 1.5), // Slightly tighter padding for the icons
+    padding: theme.spacing(1, 1.5),
     borderBottom: `1px solid ${theme.palette.divider}`,
   },
   headerActions: {
@@ -80,14 +83,14 @@ const useStyles = makeStyles()((theme) => ({
     backgroundColor: theme.palette.background.default,
   },
   speedValue: {
-    fontSize: '3rem',
+    fontSize: '3.5rem',
     fontWeight: 900,
     lineHeight: 1,
     letterSpacing: '-2px',
   },
   unitText: {
-    fontSize: '0.9rem',
-    fontWeight: 600,
+    fontSize: '1rem',
+    fontWeight: 700,
     color: theme.palette.text.secondary,
     marginLeft: theme.spacing(0.5),
     textTransform: 'uppercase',
@@ -123,7 +126,6 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.8rem',
     color: theme.palette.text.primary,
     marginBottom: theme.spacing(1),
-    transition: 'all 0.3s ease',
   },
   voltageAlert: {
     backgroundColor: theme.palette.error.main,
@@ -165,7 +167,7 @@ const StatusCard = ({ deviceId, position, onClose }) => {
   
   const [removing, setRemoving] = useState(false);
 
-  // Power Cut Logic
+  // Data Logic
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -207,14 +209,34 @@ const StatusCard = ({ deviceId, position, onClose }) => {
           </div>
 
           <div className={classes.heroSection}>
-            <div style={{ display: 'flex', alignItems: 'baseline' }}>
-              <Typography className={classes.speedValue} color={isDataStale ? "error" : "textPrimary"}>
-                {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
-              </Typography>
-              <Typography className={classes.unitText}>
-                {formatSpeed(0, speedUnit, t).split(' ')[1]}
-              </Typography>
-            </div>
+            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                <Typography className={classes.speedValue} sx={{ color: 'text.primary' }}>
+                  {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
+                </Typography>
+                <Typography className={classes.unitText}>
+                  {formatSpeed(0, speedUnit, t).split(' ')[1]}
+                </Typography>
+              </Box>
+              
+              {position?.fixTime && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: isDataStale ? 'error.main' : 'text.secondary', 
+                    fontWeight: 700,
+                    mt: 0.5,           
+                    pl: 0.8,           
+                    textTransform: 'uppercase',
+                    fontSize: '0.65rem',
+                    letterSpacing: '0.05rem',
+                    display: 'block'
+                  }}
+                >
+                  {dayjs(position.fixTime).fromNow()}
+                </Typography>
+              )}
+            </Box>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
               {powerValue !== null && (
