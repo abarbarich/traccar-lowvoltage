@@ -25,6 +25,7 @@ import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PendingIcon from '@mui/icons-material/Pending';
+import PowerOffIcon from '@mui/icons-material/PowerOff';
 import dayjs from 'dayjs';
 
 import { useTranslation } from './LocalizationProvider';
@@ -43,6 +44,12 @@ const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
+`;
+
+const alertPulse = keyframes`
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
 `;
 
 const useStyles = makeStyles()((theme) => ({
@@ -103,6 +110,8 @@ const useStyles = makeStyles()((theme) => ({
     filter: 'brightness(0) invert(1)',
   },
   voltageBadge: {
+    display: 'flex',
+    alignItems: 'center',
     backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
     padding: theme.spacing(0.3, 1),
@@ -111,6 +120,13 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.8rem',
     color: theme.palette.text.primary,
     marginBottom: theme.spacing(1),
+    transition: 'all 0.3s ease',
+  },
+  voltageAlert: {
+    backgroundColor: theme.palette.error.main,
+    color: theme.palette.error.contrastText,
+    borderColor: theme.palette.error.dark,
+    animation: `${alertPulse} 2s infinite ease-in-out`,
   },
   content: {
     flex: 1,
@@ -132,7 +148,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
-  const { classes } = useStyles();
+  const { classes, cx } = useStyles(); // Added cx here
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const t = useTranslation();
@@ -140,28 +156,22 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
   const readonly = useRestriction('readonly');
   const deviceReadonly = useDeviceReadonly();
 
-  const shareDisabled = useSelector((state) => state.session.server.attributes.disableShare);
-  const user = useSelector((state) => state.session.user);
-  
-  // Logic to handle both Live and Replay devices
   const device = useSelector((state) => state.devices.items[deviceId || position?.deviceId]);
   
   const speedUnit = useAttributePreference('speedUnit', 'kn');
   const positionAttributes = usePositionAttributes(t);
-  
-  // RE-ENABLED DYNAMIC ATTRIBUTES
   const positionItems = useAttributePreference('positionItems', 'fixTime,address,speed,totalDistance');
   
-  const navigationAppLink = useAttributePreference('navigationAppLink');
-  const navigationAppTitle = useAttributePreference('navigationAppTitle');
-
-  const [anchorEl, setAnchorEl] = useState(null);
   const [removing, setRemoving] = useState(false);
 
-  const hasIgnition = position?.attributes.hasOwnProperty('ignition');
+  // Robust Voltage Calculation
+  const rawPower = position?.attributes?.power;
+  const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
+  const isPowerCut = powerValue !== null && powerValue < 1.0;
+
+  const hasIgnition = position?.attributes?.hasOwnProperty('ignition');
   const isIgnitionOn = hasIgnition && position.attributes.ignition;
   
-  // Freshness check (Disabled during Replay because replay is always technically "stale")
   const isReplay = !!position?.id && !deviceId; 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
@@ -197,10 +207,13 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              {position?.attributes.hasOwnProperty('power') && (
-                <div className={classes.voltageBadge}>
-                  {Number(position.attributes.power).toFixed(1)}V
-                </div>
+              {powerValue !== null && (
+                <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Voltage"}>
+                  <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
+                    {isPowerCut && <PowerOffIcon sx={{ fontSize: '1rem', mr: 0.5 }} />}
+                    {powerValue.toFixed(1)}V
+                  </div>
+                </Tooltip>
               )}
               <Avatar 
                 className={`${classes.avatarBase} ${hasIgnition && isIgnitionOn && !isDataStale ? classes.ignitionActive : classes.ignitionInactive}`}
@@ -213,7 +226,7 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
           <CardContent className={classes.content}>
             <Table size="small" className={classes.table}>
               <TableBody>
-                {position && positionItems.split(',').filter((key) => position.hasOwnProperty(key) || position.attributes.hasOwnProperty(key)).map((key) => (
+                {position && positionItems.split(',').filter((key) => position.hasOwnProperty(key) || position.attributes?.hasOwnProperty(key)).map((key) => (
                   <TableRow key={key}>
                     <TableCell>
                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>
@@ -233,7 +246,6 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
                 ))}
               </TableBody>
             </Table>
-            {/* LINK TO FULL DETAILS */}
             {position?.id && (
               <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
                 <Link component={RouterLink} to={`/position/${position.id}`}>{t('sharedShowDetails')}</Link>
@@ -243,7 +255,6 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
 
           {!isReplay && (
             <CardActions className={classes.actions} disableSpacing>
-              <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}><PendingIcon /></IconButton>
               <IconButton onClick={() => navigate(`/replay?deviceId=${device.id}`)}><RouteIcon /></IconButton>
               <IconButton onClick={() => navigate(`/settings/device/${device.id}/command`)}><SendIcon /></IconButton>
               <IconButton onClick={() => navigate(`/settings/device/${device.id}`)} disabled={deviceReadonly}><EditIcon /></IconButton>
