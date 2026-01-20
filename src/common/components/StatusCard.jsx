@@ -79,13 +79,13 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing(2, 3),
+    padding: theme.spacing(1, 3), // Ultra-tight padding
     backgroundColor: theme.palette.background.default,
   },
   speedValue: {
     fontSize: '3.5rem',
     fontWeight: 900,
-    lineHeight: 1,
+    lineHeight: 0.8, // Tightened
     letterSpacing: '-2px',
   },
   unitText: {
@@ -96,23 +96,23 @@ const useStyles = makeStyles()((theme) => ({
     textTransform: 'uppercase',
   },
   avatarBase: {
-    width: 52,
-    height: 52,
-    border: '4px solid transparent',
+    width: 40,
+    height: 40,
+    border: '3px solid transparent',
     transition: 'all 0.3s ease',
     backgroundColor: theme.palette.primary.main,
   },
   ignitionActive: {
-    border: `4px solid ${theme.palette.success.main}`,
-    boxShadow: `0 0 10px ${theme.palette.success.main}, 0 0 20px ${theme.palette.success.main}66`,
+    border: `3px solid ${theme.palette.success.main}`,
+    boxShadow: `0 0 8px ${theme.palette.success.main}66`,
     animation: `${pulse} 2s infinite`,
   },
   ignitionInactive: {
-    border: `4px solid ${theme.palette.neutral.main}44`,
+    border: `3px solid ${theme.palette.neutral.main}44`,
   },
   iconImage: {
-    width: '30px',
-    height: '30px',
+    width: '24px',
+    height: '24px',
     filter: 'brightness(0) invert(1)',
   },
   voltageBadge: {
@@ -120,12 +120,12 @@ const useStyles = makeStyles()((theme) => ({
     alignItems: 'center',
     backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
-    padding: theme.spacing(0.3, 1),
+    padding: theme.spacing(0.2, 0.8),
     borderRadius: '4px',
     fontWeight: 800,
-    fontSize: '0.8rem',
+    fontSize: '0.75rem',
     color: theme.palette.text.primary,
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(0.5),
   },
   voltageAlert: {
     backgroundColor: theme.palette.error.main,
@@ -167,7 +167,6 @@ const StatusCard = ({ deviceId, position, onClose }) => {
   
   const [removing, setRemoving] = useState(false);
 
-  // Data Logic
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -209,8 +208,8 @@ const StatusCard = ({ deviceId, position, onClose }) => {
           </div>
 
           <div className={classes.heroSection}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
                 <Typography className={classes.speedValue} sx={{ color: 'text.primary' }}>
                   {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
                 </Typography>
@@ -225,10 +224,10 @@ const StatusCard = ({ deviceId, position, onClose }) => {
                   sx={{ 
                     color: isDataStale ? 'error.main' : 'text.secondary', 
                     fontWeight: 700,
-                    mt: 0.5,           
+                    mt: 0.2, // Tighter margin
                     pl: 0.8,           
                     textTransform: 'uppercase',
-                    fontSize: '0.65rem',
+                    fontSize: '0.6rem', // Slightly smaller for the tighter look
                     letterSpacing: '0.05rem',
                     display: 'block'
                   }}
@@ -238,11 +237,11 @@ const StatusCard = ({ deviceId, position, onClose }) => {
               )}
             </Box>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
               {powerValue !== null && (
                 <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Voltage"}>
                   <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
-                    {isPowerCut && <PowerOffIcon sx={{ fontSize: '1rem', mr: 0.5 }} />}
+                    {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />}
                     {powerValue.toFixed(1)}V
                   </div>
                 </Tooltip>
