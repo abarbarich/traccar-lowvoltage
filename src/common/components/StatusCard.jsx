@@ -11,11 +11,9 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Menu,
-  MenuItem,
   Tooltip,
   Avatar,
-  Link,
+  Box,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import { keyframes } from '@emotion/react';
@@ -24,7 +22,7 @@ import RouteIcon from '@mui/icons-material/Route';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import PendingIcon from '@mui/icons-material/Pending';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'; // The new pop-out icon
 import PowerOffIcon from '@mui/icons-material/PowerOff';
 import dayjs from 'dayjs';
 
@@ -34,11 +32,11 @@ import PositionValue from './PositionValue';
 import { useDeviceReadonly, useRestriction } from '../util/permissions';
 import usePositionAttributes from '../attributes/usePositionAttributes';
 import { devicesActions } from '../../store';
-import { useCatch, useCatchCallback } from '../../reactHelper';
+import { useCatch } from '../../reactHelper';
 import { useAttributePreference } from '../util/preferences';
 import fetchOrThrow from '../util/fetchOrThrow';
 import { mapIconKey, mapIcons } from '../../map/core/preloadImages';
-import { formatSpeed, formatBoolean } from '../util/formatter';
+import { formatSpeed } from '../util/formatter';
 
 const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
@@ -66,8 +64,13 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing(1.5, 2),
+    padding: theme.spacing(1, 1.5), // Slightly tighter padding for the icons
     borderBottom: `1px solid ${theme.palette.divider}`,
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
   },
   heroSection: {
     display: 'flex',
@@ -147,15 +150,13 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
-const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
-  const { classes, cx } = useStyles(); // Added cx here
+const StatusCard = ({ deviceId, position, onClose }) => {
+  const { classes, cx } = useStyles();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const t = useTranslation();
 
-  const readonly = useRestriction('readonly');
   const deviceReadonly = useDeviceReadonly();
-
   const device = useSelector((state) => state.devices.items[deviceId || position?.deviceId]);
   
   const speedUnit = useAttributePreference('speedUnit', 'kn');
@@ -164,7 +165,7 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
   
   const [removing, setRemoving] = useState(false);
 
-  // Robust Voltage Calculation
+  // Power Cut Logic
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -191,9 +192,18 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
             <Typography variant="subtitle1" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
               {device?.name || t('sharedUnknown')}
             </Typography>
-            <IconButton size="small" onClick={onClose}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
+            <div className={classes.headerActions}>
+              {position?.id && (
+                <Tooltip title={t('sharedShowDetails')}>
+                  <IconButton size="small" onClick={() => navigate(`/position/${position.id}`)}>
+                    <OpenInNewIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <IconButton size="small" onClick={onClose}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </div>
           </div>
 
           <div className={classes.heroSection}>
@@ -246,11 +256,6 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
                 ))}
               </TableBody>
             </Table>
-            {position?.id && (
-              <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-                <Link component={RouterLink} to={`/position/${position.id}`}>{t('sharedShowDetails')}</Link>
-              </Typography>
-            )}
           </CardContent>
 
           {!isReplay && (
