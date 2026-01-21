@@ -30,7 +30,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from './LocalizationProvider';
 import RemoveDialog from './RemoveDialog';
 import PositionValue from './PositionValue';
-import { useDeviceReadonly, useRestriction } from '../util/permissions';
+import { useDeviceReadonly } from '../util/permissions';
 import usePositionAttributes from '../attributes/usePositionAttributes';
 import { devicesActions } from '../../store';
 import { useCatch } from '../../reactHelper';
@@ -79,13 +79,13 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing(1, 3), // Ultra-tight padding
+    padding: theme.spacing(1, 3),
     backgroundColor: theme.palette.background.default,
   },
   speedValue: {
     fontSize: '3.5rem',
     fontWeight: 900,
-    lineHeight: 0.8, // Tightened
+    lineHeight: 0.8,
     letterSpacing: '-2px',
   },
   unitText: {
@@ -115,6 +115,7 @@ const useStyles = makeStyles()((theme) => ({
     height: '24px',
     filter: 'brightness(0) invert(1)',
   },
+  // --- Standardized Badge Styles ---
   voltageBadge: {
     display: 'flex',
     alignItems: 'center',
@@ -152,7 +153,7 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
-const StatusCard = ({ deviceId, position, onClose }) => {
+const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
   const { classes, cx } = useStyles();
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -167,6 +168,7 @@ const StatusCard = ({ deviceId, position, onClose }) => {
   
   const [removing, setRemoving] = useState(false);
 
+  // Unified Voltage Logic
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -174,7 +176,7 @@ const StatusCard = ({ deviceId, position, onClose }) => {
   const hasIgnition = position?.attributes?.hasOwnProperty('ignition');
   const isIgnitionOn = hasIgnition && position.attributes.ignition;
   
-  const isReplay = !!position?.id && !deviceId; 
+  const isReplay = !!disableActions; 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
   const handleRemove = useCatch(async (removed) => {
@@ -194,7 +196,7 @@ const StatusCard = ({ deviceId, position, onClose }) => {
               {device?.name || t('sharedUnknown')}
             </Typography>
             <div className={classes.headerActions}>
-              {position?.id && (
+              {!isReplay && position?.id && (
                 <Tooltip title={t('sharedShowDetails')}>
                   <IconButton size="small" onClick={() => navigate(`/position/${position.id}`)}>
                     <OpenInNewIcon fontSize="small" />
@@ -210,7 +212,10 @@ const StatusCard = ({ deviceId, position, onClose }) => {
           <div className={classes.heroSection}>
             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
               <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
-                <Typography className={classes.speedValue} sx={{ color: 'text.primary' }}>
+                <Typography 
+                  className={classes.speedValue} 
+                  sx={{ color: isDataStale && position?.speed > 0 ? 'error.main' : 'text.primary' }}
+                >
                   {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
                 </Typography>
                 <Typography className={classes.unitText}>
@@ -224,10 +229,10 @@ const StatusCard = ({ deviceId, position, onClose }) => {
                   sx={{ 
                     color: isDataStale ? 'error.main' : 'text.secondary', 
                     fontWeight: 700,
-                    mt: 0.2, // Tighter margin
-                    pl: 0.8,           
+                    mt: 0.2, 
+                    pl: 0.8,            
                     textTransform: 'uppercase',
-                    fontSize: '0.6rem', // Slightly smaller for the tighter look
+                    fontSize: '0.6rem',
                     letterSpacing: '0.05rem',
                     display: 'block'
                   }}
@@ -238,14 +243,14 @@ const StatusCard = ({ deviceId, position, onClose }) => {
             </Box>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-              {powerValue !== null && (
-                <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Voltage"}>
-                  <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
-                    {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />}
-                    {powerValue.toFixed(1)}V
-                  </div>
-                </Tooltip>
-              )}
+              {/* Voltage Badge with Placeholder Logic */}
+              <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Voltage")}>
+                <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
+                  {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />}
+                  {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
+                </div>
+              </Tooltip>
+              
               <Avatar 
                 className={`${classes.avatarBase} ${hasIgnition && isIgnitionOn && !isDataStale ? classes.ignitionActive : classes.ignitionInactive}`}
               >
