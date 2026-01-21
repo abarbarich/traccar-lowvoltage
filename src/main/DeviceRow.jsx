@@ -4,7 +4,7 @@ import { makeStyles } from 'tss-react/mui';
 import { keyframes } from '@emotion/react';
 import {
   IconButton, Tooltip, Avatar, ListItemAvatar, ListItemText, ListItemButton,
-  Typography,
+  Typography, Box,
 } from '@mui/material';
 import BatteryFullIcon from '@mui/icons-material/BatteryFull';
 import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
@@ -13,7 +13,7 @@ import BatteryCharging60Icon from '@mui/icons-material/BatteryCharging60';
 import Battery20Icon from '@mui/icons-material/Battery20';
 import BatteryCharging20Icon from '@mui/icons-material/BatteryCharging20';
 import ErrorIcon from '@mui/icons-material/Error';
-import PowerOffIcon from '@mui/icons-material/PowerOff'; // Added for Power Cut
+import PowerOffIcon from '@mui/icons-material/PowerOff';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
@@ -33,6 +33,12 @@ const pulse = keyframes`
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
 `;
 
+const alertPulse = keyframes`
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+`;
+
 const useStyles = makeStyles()((theme) => ({
   icon: {
     width: '25px',
@@ -50,7 +56,6 @@ const useStyles = makeStyles()((theme) => ({
   },
   ignitionStale: {
     border: `4px solid ${theme.palette.success.main}aa`,
-    boxShadow: `0 0 5px ${theme.palette.success.main}44`,
     animation: 'none', 
   },
   ignitionInactive: {
@@ -62,27 +67,36 @@ const useStyles = makeStyles()((theme) => ({
     alignItems: 'flex-end',
     justifyContent: 'center',
     marginLeft: theme.spacing(1),
-    minWidth: '85px', 
+    minWidth: '90px', 
   },
   speedRow: {
     display: 'flex',
     alignItems: 'baseline',
-    marginBottom: '1px',
+    marginBottom: '2px',
   },
   iconRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    gap: '2px',
   },
-  voltageText: {
-    fontSize: '0.75rem',
-    fontWeight: 'bold',
-    color: theme.palette.text.secondary,
-    marginRight: '4px',
+  // --- Matched StatusCard Voltage Styles ---
+  voltageBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    padding: '1px 4px',
+    borderRadius: '4px',
+    fontWeight: 800,
+    fontSize: '0.65rem',
+    color: theme.palette.text.primary,
   },
-  voltageError: {
-    color: theme.palette.error.main,
-    fontWeight: 900,
+  voltageAlert: {
+    backgroundColor: theme.palette.error.main,
+    color: theme.palette.error.contrastText,
+    borderColor: theme.palette.error.dark,
+    animation: `${alertPulse} 2s infinite ease-in-out`,
   },
   statusText: {
     display: 'block',
@@ -91,7 +105,6 @@ const useStyles = makeStyles()((theme) => ({
   success: { color: theme.palette.success.main },
   warning: { color: theme.palette.warning.main },
   error: { color: theme.palette.error.main },
-  neutral: { color: theme.palette.neutral.main },
   selected: { backgroundColor: theme.palette.action.selected },
 }));
 
@@ -107,162 +120,80 @@ const DeviceRow = ({ devices, index, style }) => {
   const position = useSelector((state) => state.session.positions[item.id]);
 
   const devicePrimary = useAttributePreference('devicePrimary', 'name');
-  const deviceSecondary = useAttributePreference('deviceSecondary', '');
   const speedUnit = useAttributePreference('speedUnit', 'kn');
 
   const isDataStale = item.lastUpdate ? dayjs().diff(dayjs(item.lastUpdate), 'minute') > 10 : true;
   const hasIgnition = position?.attributes.hasOwnProperty('ignition');
   const isIgnitionOn = hasIgnition && position.attributes.ignition;
 
-  // Power Cut Logic
-  const powerValue = position?.attributes.hasOwnProperty('power') ? parseFloat(position.attributes.power) : null;
+  // Voltage logic
+  const rawPower = position?.attributes?.power;
+  const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
   const getSpeedData = () => {
     if (position && position.hasOwnProperty('speed')) {
       const speedValue = position.speed;
-      const showQuestion = speedValue > 0 && isDataStale;
-      if (showQuestion) return { value: '?', unit: '', isStale: true };
+      if (speedValue > 0 && isDataStale) return { value: '?', unit: '', isStale: true };
       const formatted = formatSpeed(speedValue, speedUnit, t).replace(/\.\d+/, '');
       const parts = formatted.split(' ');
-      return {
-        value: parts[0],
-        unit: parts.length > 1 ? parts[1] : '',
-        isStale: false,
-      };
+      return { value: parts[0], unit: parts.length > 1 ? parts[1] : '', isStale: false };
     }
     return null;
   };
 
   const speedData = getSpeedData();
 
-  const secondaryText = () => {
-    let statusLabel = (item.status === 'online' || !item.lastUpdate) 
-      ? formatStatus(item.status, t) 
-      : dayjs(item.lastUpdate).fromNow();
-    
-    return (
-      <>
-        {deviceSecondary && item[deviceSecondary] && (
-          <Typography variant="body2" component="span" display="block">
-            {item[deviceSecondary]}
-          </Typography>
-        )}
-        <Typography 
-          variant="caption" 
-          className={`${classes.statusText} ${classes[getStatusColor(item.status)]}`}
-        >
-          {statusLabel}
-        </Typography>
-      </>
-    );
-  };
-
-  const getAvatarClass = () => {
-    if (!hasIgnition) return '';
-    if (isIgnitionOn) {
-      return isDataStale ? classes.ignitionStale : classes.ignitionActive;
-    }
-    return classes.ignitionInactive;
-  };
-
   return (
     <div style={style}>
       <ListItemButton
-        key={item.id}
         onClick={() => dispatch(devicesActions.selectId(item.id))}
         disabled={!admin && item.disabled}
         selected={selectedDeviceId === item.id}
         className={selectedDeviceId === item.id ? classes.selected : null}
       >
         <ListItemAvatar>
-          <Tooltip title={hasIgnition ? `${t('positionIgnition')}: ${formatBoolean(isIgnitionOn, t)}` : ""}>
-            <Avatar className={`${classes.avatarBase} ${getAvatarClass()}`}>
-              <img className={classes.icon} src={mapIcons[mapIconKey(item.category)]} alt="" />
-            </Avatar>
-          </Tooltip>
+          <Avatar className={`${classes.avatarBase} ${isIgnitionOn ? (isDataStale ? classes.ignitionStale : classes.ignitionActive) : classes.ignitionInactive}`}>
+            <img className={classes.icon} src={mapIcons[mapIconKey(item.category)]} alt="" />
+          </Avatar>
         </ListItemAvatar>
         
         <ListItemText
           primary={item[devicePrimary]}
-          secondary={secondaryText()}
-          slots={{ primary: Typography, secondary: 'div' }}
-          slotProps={{
-            primary: { noWrap: true, variant: 'body1', fontWeight: 'bold' },
-            secondary: { noWrap: false },
-          }}
+          secondary={
+            <Typography variant="caption" className={`${classes.statusText} ${classes[getStatusColor(item.status)]}`}>
+              {(item.status === 'online' || !item.lastUpdate) ? formatStatus(item.status, t) : dayjs(item.lastUpdate).fromNow()}
+            </Typography>
+          }
+          slotProps={{ primary: { noWrap: true, fontWeight: 'bold' } }}
         />
         
         {position && (
           <div className={classes.rightColumn}>
             {speedData && (
-              <Tooltip title={t('positionSpeed')}>
-                <div className={classes.speedRow}>
-                  <Typography 
-                    sx={{ 
-                      fontSize: '1.25rem', 
-                      fontWeight: 900,
-                      lineHeight: 1,
-                      color: speedData.isStale ? 'error.main' : 'text.primary' 
-                    }}
-                  >
-                    {speedData.value}
-                  </Typography>
-                  {speedData.unit && (
-                    <Typography 
-                      sx={{ 
-                        fontSize: '0.65rem', 
-                        fontWeight: 400,
-                        ml: 0.3,
-                        color: speedData.isStale ? 'error.main' : 'text.secondary',
-                        textTransform: 'lowercase'
-                      }}
-                    >
-                      {speedData.unit}
-                    </Typography>
-                  )}
-                </div>
-              </Tooltip>
+              <div className={classes.speedRow}>
+                <Typography sx={{ fontSize: '1.2rem', fontWeight: 900, lineHeight: 1, color: speedData.isStale ? 'error.main' : 'text.primary' }}>
+                  {speedData.value}
+                </Typography>
+                <Typography sx={{ fontSize: '0.6rem', ml: 0.2, color: 'text.secondary', textTransform: 'uppercase' }}>
+                  {speedData.unit}
+                </Typography>
+              </div>
             )}
 
             <div className={classes.iconRow}>
-              {powerValue !== null && (
-                <Tooltip title={isPowerCut ? "MAIN POWER CUT" : "External Voltage"}>
-                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {isPowerCut && <PowerOffIcon color="error" sx={{ fontSize: '0.9rem', mr: 0.3 }} />}
-                    <Typography className={cx(classes.voltageText, { [classes.voltageError]: isPowerCut })}>
-                      {powerValue.toFixed(1)}v
-                    </Typography>
-                  </div>
-                </Tooltip>
-              )}
-
-              {position.attributes.hasOwnProperty('alarm') && (
-                <Tooltip title={`${t('eventAlarm')}: ${formatAlarm(position.attributes.alarm, t)}`}>
-                  <IconButton size="small" sx={{ p: 0.1 }}>
-                    <ErrorIcon className={classes.error} style={{ fontSize: '1.1rem' }} />
-                  </IconButton>
-                </Tooltip>
-              )}
+              {/* Voltage Badge matched to StatusCard */}
+              <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power")}>
+                <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
+                  {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />}
+                  {powerValue !== null ? `${powerValue.toFixed(1)}V` : "--.-V"}
+                </div>
+              </Tooltip>
 
               {position.attributes.hasOwnProperty('batteryLevel') && (
-                <Tooltip title={`${t('positionBatteryLevel')}: ${formatPercentage(position.attributes.batteryLevel)}`}>
-                  <IconButton size="small" sx={{ p: 0.1 }}>
-                    {(position.attributes.batteryLevel > 70 && (
-                      position.attributes.charge
-                        ? (<BatteryChargingFullIcon style={{ fontSize: '1.1rem' }} className={classes.success} />)
-                        : (<BatteryFullIcon style={{ fontSize: '1.1rem' }} className={classes.success} />)
-                    )) || (position.attributes.batteryLevel > 30 && (
-                      position.attributes.charge
-                        ? (<BatteryCharging60Icon style={{ fontSize: '1.1rem' }} className={classes.warning} />)
-                        : (<Battery60Icon style={{ fontSize: '1.1rem' }} className={classes.warning} />)
-                    )) || (
-                      position.attributes.charge
-                        ? (<BatteryCharging20Icon style={{ fontSize: '1.1rem' }} className={classes.error} />)
-                        : (<Battery20Icon style={{ fontSize: '1.1rem' }} className={classes.error} />)
-                    )}
-                  </IconButton>
-                </Tooltip>
+                <IconButton size="small" sx={{ p: 0 }}>
+                  <BatteryFullIcon sx={{ fontSize: '1rem' }} className={classes.success} />
+                </IconButton>
               )}
             </div>
           </div>
