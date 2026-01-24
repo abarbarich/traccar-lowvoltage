@@ -7,18 +7,12 @@ import {
   Typography, Box,
 } from '@mui/material';
 import BatteryFullIcon from '@mui/icons-material/BatteryFull';
-import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
-import Battery60Icon from '@mui/icons-material/Battery60';
-import BatteryCharging60Icon from '@mui/icons-material/BatteryCharging60';
-import Battery20Icon from '@mui/icons-material/Battery20';
-import BatteryCharging20Icon from '@mui/icons-material/BatteryCharging20';
-import ErrorIcon from '@mui/icons-material/Error';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
 import {
-  formatAlarm, formatBoolean, formatPercentage, formatStatus, getStatusColor, formatSpeed,
+  formatStatus, getStatusColor, formatSpeed,
 } from '../common/util/formatter';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { mapIconKey, mapIcons } from '../map/core/preloadImages';
@@ -31,6 +25,12 @@ const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
+`;
+
+const motionPulse = keyframes`
+  0% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0); }
 `;
 
 const alertPulse = keyframes`
@@ -58,6 +58,11 @@ const useStyles = makeStyles()((theme) => ({
     border: `4px solid ${theme.palette.success.main}aa`,
     animation: 'none', 
   },
+  motionActive: {
+    border: `4px solid ${theme.palette.warning.main}`,
+    boxShadow: `0 0 10px ${theme.palette.warning.main}, 0 0 20px ${theme.palette.warning.main}66`,
+    animation: `${motionPulse} 2s infinite`,
+  },
   ignitionInactive: {
     border: `4px solid ${theme.palette.neutral.main}44`,
   },
@@ -80,7 +85,6 @@ const useStyles = makeStyles()((theme) => ({
     justifyContent: 'flex-end',
     gap: '2px',
   },
-  // --- Matched StatusCard Voltage Styles ---
   voltageBadge: {
     display: 'flex',
     alignItems: 'center',
@@ -103,8 +107,6 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.75rem',
   },
   success: { color: theme.palette.success.main },
-  warning: { color: theme.palette.warning.main },
-  error: { color: theme.palette.error.main },
   selected: { backgroundColor: theme.palette.action.selected },
 }));
 
@@ -123,10 +125,10 @@ const DeviceRow = ({ devices, index, style }) => {
   const speedUnit = useAttributePreference('speedUnit', 'kn');
 
   const isDataStale = item.lastUpdate ? dayjs().diff(dayjs(item.lastUpdate), 'minute') > 10 : true;
-  const hasIgnition = position?.attributes.hasOwnProperty('ignition');
-  const isIgnitionOn = hasIgnition && position.attributes.ignition;
+  
+  const isIgnitionOn = position?.attributes?.ignition === true;
+  const isTowing = position?.attributes?.tow === true;
 
-  // Voltage logic
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -144,6 +146,12 @@ const DeviceRow = ({ devices, index, style }) => {
 
   const speedData = getSpeedData();
 
+  const getAvatarClass = () => {
+    if (isIgnitionOn) return isDataStale ? classes.ignitionStale : classes.ignitionActive;
+    if (isTowing && !isDataStale) return classes.motionActive;
+    return classes.ignitionInactive;
+  };
+
   return (
     <div style={style}>
       <ListItemButton
@@ -153,15 +161,17 @@ const DeviceRow = ({ devices, index, style }) => {
         className={selectedDeviceId === item.id ? classes.selected : null}
       >
         <ListItemAvatar>
-          <Avatar className={`${classes.avatarBase} ${isIgnitionOn ? (isDataStale ? classes.ignitionStale : classes.ignitionActive) : classes.ignitionInactive}`}>
-            <img className={classes.icon} src={mapIcons[mapIconKey(item.category)]} alt="" />
-          </Avatar>
+          <Tooltip title={isTowing ? "Tow" : ""}>
+            <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
+              <img className={classes.icon} src={mapIcons[mapIconKey(item.category)]} alt="" />
+            </Avatar>
+          </Tooltip>
         </ListItemAvatar>
         
         <ListItemText
           primary={item[devicePrimary]}
           secondary={
-            <Typography variant="caption" className={`${classes.statusText} ${classes[getStatusColor(item.status)]}`}>
+            <Typography variant="caption" className={cx(classes.statusText, classes[getStatusColor(item.status)])}>
               {(item.status === 'online' || !item.lastUpdate) ? formatStatus(item.status, t) : dayjs(item.lastUpdate).fromNow()}
             </Typography>
           }
@@ -182,7 +192,6 @@ const DeviceRow = ({ devices, index, style }) => {
             )}
 
             <div className={classes.iconRow}>
-              {/* Voltage Badge matched to StatusCard */}
               <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power")}>
                 <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
                   {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />}
