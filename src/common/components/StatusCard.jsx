@@ -170,9 +170,13 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const t = useTranslation();
 
   const deviceReadonly = useDeviceReadonly();
+  const isReplay = !!disableActions;
+
+  // FIX: Prioritize positionProp in Replay mode to show selected history points
+  const livePosition = useSelector((state) => 
+    !isReplay ? state.session.positions[deviceId || positionProp?.deviceId] : null
+  );
   
-  // Use live state to ensure parity with DeviceRow
-  const livePosition = useSelector((state) => state.session.positions[deviceId || positionProp?.deviceId]);
   const position = livePosition || positionProp;
   const device = useSelector((state) => state.devices.items[deviceId || position?.deviceId]);
   
@@ -182,15 +186,13 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   
   const [removing, setRemoving] = useState(false);
 
-  // New Tow-Based Logic
   const isIgnitionOn = position?.attributes?.ignition === true;
-  const isTowing = position?.attributes?.tow === true; // Utilizing the specific 'tow' attribute
+  const isTowing = position?.attributes?.tow === true;
 
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
-  const isReplay = !!disableActions; 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
   const handleRemove = useCatch(async (removed) => {
@@ -263,7 +265,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             </Box>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-              <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Voltage")}>
+              <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power")}>
                 <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
                   {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />}
                   {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
