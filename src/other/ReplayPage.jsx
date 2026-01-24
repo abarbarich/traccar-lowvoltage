@@ -61,7 +61,6 @@ const useStyles = makeStyles()((theme) => ({
     textTransform: 'uppercase',
     letterSpacing: '1px',
   },
-  // --- Cohesive Bottom Stack ---
   bottomStack: {
     position: 'fixed',
     zIndex: 7,
@@ -92,6 +91,8 @@ const useStyles = makeStyles()((theme) => ({
   statusCardInner: {
     pointerEvents: 'auto',
     height: '45vh',
+    display: 'flex', // Added to ensure StatusCard fills correctly
+    flexDirection: 'column',
     overflow: 'hidden',
     backgroundColor: theme.palette.background.paper,
     borderBottomLeftRadius: theme.shape.borderRadius,
@@ -196,7 +197,6 @@ const ReplayPage = () => {
       <MapScale />
       <MapCamera positions={positions} />
 
-      {/* TOP TOOLBAR & FILTER */}
       <div className={classes.sidebar}>
         <Paper elevation={3} className={classes.header}>
           <Toolbar>
@@ -225,10 +225,8 @@ const ReplayPage = () => {
         </Paper>
       </div>
 
-      {/* BOTTOM COHESIVE STACK */}
       {loaded && (
         <div className={classes.bottomStack}>
-          {/* Streamlined Control Deck */}
           <Paper className={classes.replayControlCard} elevation={0}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                <Typography variant="caption" className={classes.timeLabel}>
@@ -269,7 +267,6 @@ const ReplayPage = () => {
             </div>
           </Paper>
 
-          {/* Unified Status Card */}
           {showCard && (
             <div className={classes.statusCardInner}>
               <StatusCard
