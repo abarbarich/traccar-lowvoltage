@@ -172,7 +172,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const deviceReadonly = useDeviceReadonly();
   const isReplay = !!disableActions;
 
-  // FIX: Prioritize positionProp in Replay mode to show selected history points
+  // Prioritize live data if not in replay
   const livePosition = useSelector((state) => 
     !isReplay ? state.session.positions[deviceId || positionProp?.deviceId] : null
   );
@@ -186,13 +186,15 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   
   const [removing, setRemoving] = useState(false);
 
-  const isIgnitionOn = position?.attributes?.ignition === true;
-  const isTowing = position?.attributes?.tow === true;
+  // Improved attribute checks to handle strings/booleans
+  const isIgnitionOn = position?.attributes?.ignition?.toString() === 'true';
+  const isTowing = position?.attributes?.tow?.toString() === 'true';
 
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
+  // Calculate staleness
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
   const handleRemove = useCatch(async (removed) => {
@@ -204,8 +206,13 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   });
 
   const getAvatarClass = () => {
-    if (isIgnitionOn && !isDataStale) return classes.ignitionActive;
+    // 1. Check Towing First (High priority alert)
     if (isTowing && !isDataStale) return classes.motionActive;
+    
+    // 2. Check Ignition Second
+    if (isIgnitionOn && !isDataStale) return classes.ignitionActive;
+    
+    // 3. Fallback
     return classes.ignitionInactive;
   };
 
