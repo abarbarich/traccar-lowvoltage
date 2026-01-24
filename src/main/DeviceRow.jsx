@@ -3,10 +3,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 import { keyframes } from '@emotion/react';
 import {
-  IconButton, Tooltip, Avatar, ListItemAvatar, ListItemText, ListItemButton,
-  Typography, Box,
+  Tooltip, Avatar, ListItemAvatar, ListItemText, ListItemButton,
+  Typography,
 } from '@mui/material';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
+import ShieldIcon from '@mui/icons-material/Shield';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
@@ -20,6 +21,7 @@ import { useAttributePreference } from '../common/util/preferences';
 
 dayjs.extend(relativeTime);
 
+// --- ANIMATIONS ---
 const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
@@ -30,6 +32,12 @@ const motionPulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0); }
+`;
+
+const bluePulse = keyframes`
+  0% { box-shadow: 0 0 0 0px rgba(33, 150, 243, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(33, 150, 243, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(33, 150, 243, 0); }
 `;
 
 const alertPulse = keyframes`
@@ -82,17 +90,38 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: '2px',
+    gap: '4px',
   },
-  voltageBadge: {
+  badgeBase: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
     padding: '1px 4px',
     borderRadius: '4px',
-    fontWeight: 800,
+    fontWeight: 900,
     fontSize: '0.65rem',
+    height: '18px',
+  },
+  out1Active: {
+    backgroundColor: theme.palette.info.main,
+    color: theme.palette.info.contrastText,
+    borderColor: theme.palette.info.dark,
+    animation: `${bluePulse} 2s infinite`,
+    padding: '1px 6px',
+  },
+  immobActive: {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    borderColor: theme.palette.success.dark,
+  },
+  immobInactive: {
+    backgroundColor: theme.palette.action.disabledBackground,
+    color: theme.palette.action.disabled,
+    borderColor: theme.palette.divider,
+  },
+  voltageBadge: {
     color: theme.palette.text.primary,
   },
   voltageAlert: {
@@ -127,6 +156,10 @@ const DeviceRow = ({ devices, index, style }) => {
   
   const isIgnitionOn = position?.attributes?.ignition === true;
   const isTowing = position?.attributes?.tow === true;
+
+  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
+  const isImmobilised = position?.attributes?.immobiliser === true;
+  const isOut1Active = position?.attributes?.out1 === true;
 
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
@@ -191,8 +224,26 @@ const DeviceRow = ({ devices, index, style }) => {
             )}
 
             <div className={classes.iconRow}>
+              {/* IMMOBILISER / OUT1 LOGIC */}
+              {hasImmobiliserAttr ? (
+                <Tooltip title={isImmobilised ? "Security: ACTIVE" : "Security: DISARMED"}>
+                  <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
+                    <ShieldIcon sx={{ fontSize: '0.8rem' }} />
+                  </div>
+                </Tooltip>
+              ) : (
+                isOut1Active && (
+                  <Tooltip title="Output 1 Active">
+                    <div className={cx(classes.badgeBase, classes.out1Active)}>
+                      OUT1
+                    </div>
+                  </Tooltip>
+                )
+              )}
+
+              {/* VOLTAGE BADGE */}
               <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power")}>
-                <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
+                <div className={cx(classes.badgeBase, classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
                   {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />}
                   {powerValue !== null ? `${powerValue.toFixed(1)}V` : "--.-V"}
                 </div>
