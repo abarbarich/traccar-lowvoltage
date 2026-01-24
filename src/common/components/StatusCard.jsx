@@ -47,6 +47,12 @@ const pulse = keyframes`
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
 `;
 
+const motionPulse = keyframes`
+  0% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0); }
+`;
+
 const alertPulse = keyframes`
   0% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.8; transform: scale(1.02); }
@@ -107,6 +113,11 @@ const useStyles = makeStyles()((theme) => ({
     boxShadow: `0 0 8px ${theme.palette.success.main}66`,
     animation: `${pulse} 2s infinite`,
   },
+  motionActive: {
+    border: `3px solid ${theme.palette.warning.main}`,
+    boxShadow: `0 0 8px ${theme.palette.warning.main}66`,
+    animation: `${motionPulse} 2s infinite`,
+  },
   ignitionInactive: {
     border: `3px solid ${theme.palette.neutral.main}44`,
   },
@@ -152,13 +163,17 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
-const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
+const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions }) => {
   const { classes, cx } = useStyles();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const t = useTranslation();
 
   const deviceReadonly = useDeviceReadonly();
+  
+  // Use live state to ensure parity with DeviceRow
+  const livePosition = useSelector((state) => state.session.positions[deviceId || positionProp?.deviceId]);
+  const position = livePosition || positionProp;
   const device = useSelector((state) => state.devices.items[deviceId || position?.deviceId]);
   
   const speedUnit = useAttributePreference('speedUnit', 'kn');
@@ -167,14 +182,14 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
   
   const [removing, setRemoving] = useState(false);
 
-  // Unified Voltage Logic
+  // New Tow-Based Logic
+  const isIgnitionOn = position?.attributes?.ignition === true;
+  const isTowing = position?.attributes?.tow === true; // Utilizing the specific 'tow' attribute
+
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
-  const hasIgnition = position?.attributes?.hasOwnProperty('ignition');
-  const isIgnitionOn = hasIgnition && position.attributes.ignition;
-  
   const isReplay = !!disableActions; 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
@@ -186,6 +201,12 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
     setRemoving(false);
   });
 
+  const getAvatarClass = () => {
+    if (isIgnitionOn && !isDataStale) return classes.ignitionActive;
+    if (isTowing && !isDataStale) return classes.motionActive;
+    return classes.ignitionInactive;
+  };
+
   return (
     <>
       {(device || position) && (
@@ -195,7 +216,6 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
               {device?.name || t('sharedUnknown')}
             </Typography>
             <div className={classes.headerActions}>
-              {/* decoupled from isReplay to allow details view during replay */}
               {position?.id && (
                 <Tooltip title={t('sharedShowDetails')}>
                   <IconButton size="small" onClick={() => navigate(`/position/${position.id}`)}>
@@ -250,11 +270,11 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
                 </div>
               </Tooltip>
               
-              <Avatar 
-                className={`${classes.avatarBase} ${hasIgnition && isIgnitionOn && !isDataStale ? classes.ignitionActive : classes.ignitionInactive}`}
-              >
-                <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
-              </Avatar>
+              <Tooltip title={isTowing ? "Tow" : ""}>
+                <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
+                  <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
+                </Avatar>
+              </Tooltip>
             </div>
           </div>
 
