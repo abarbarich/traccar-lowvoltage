@@ -6,7 +6,6 @@ import {
   IconButton, Tooltip, Avatar, ListItemAvatar, ListItemText, ListItemButton,
   Typography, Box,
 } from '@mui/material';
-import BatteryFullIcon from '@mui/icons-material/BatteryFull';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -198,12 +197,6 @@ const DeviceRow = ({ devices, index, style }) => {
                   {powerValue !== null ? `${powerValue.toFixed(1)}V` : "--.-V"}
                 </div>
               </Tooltip>
-
-              {position.attributes.hasOwnProperty('batteryLevel') && (
-                <IconButton size="small" sx={{ p: 0 }}>
-                  <BatteryFullIcon sx={{ fontSize: '1rem' }} className={classes.success} />
-                </IconButton>
-              )}
             </div>
           </div>
         )}
