@@ -115,7 +115,6 @@ const useStyles = makeStyles()((theme) => ({
     height: '24px',
     filter: 'brightness(0) invert(1)',
   },
-  // --- Standardized Badge Styles ---
   voltageBadge: {
     display: 'flex',
     alignItems: 'center',
@@ -196,7 +195,8 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
               {device?.name || t('sharedUnknown')}
             </Typography>
             <div className={classes.headerActions}>
-              {!isReplay && position?.id && (
+              {/* decoupled from isReplay to allow details view during replay */}
+              {position?.id && (
                 <Tooltip title={t('sharedShowDetails')}>
                   <IconButton size="small" onClick={() => navigate(`/position/${position.id}`)}>
                     <OpenInNewIcon fontSize="small" />
@@ -243,7 +243,6 @@ const StatusCard = ({ deviceId, position, onClose, disableActions }) => {
             </Box>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-              {/* Voltage Badge with Placeholder Logic */}
               <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Voltage")}>
                 <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
                   {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />}
