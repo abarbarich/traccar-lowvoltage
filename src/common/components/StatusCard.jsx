@@ -25,6 +25,15 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
 import ShieldIcon from '@mui/icons-material/Shield';
+
+// Attribute Icons
+import DoorFrontIcon from '@mui/icons-material/DoorFront'; 
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'; 
+import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull'; 
+import BatteryAlertIcon from '@mui/icons-material/BatteryAlert'; 
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import WaterIcon from '@mui/icons-material/Water';
+
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -43,16 +52,40 @@ import { formatSpeed } from '../util/formatter';
 dayjs.extend(relativeTime);
 
 // --- ANIMATIONS ---
-const pulse = keyframes`
+const pulseGreen = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
 `;
 
-const motionPulse = keyframes`
+const pulseYellow = keyframes`
+  0% { box-shadow: 0 0 0 0px rgba(255, 214, 0, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 214, 0, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(255, 214, 0, 0); }
+`;
+
+const pulseOrange = keyframes`
+  0% { box-shadow: 0 0 0 0px rgba(255, 109, 0, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 109, 0, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(255, 109, 0, 0); }
+`;
+
+const pulseMotion = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0); }
+`;
+
+const yellowToRedFlash = keyframes`
+  0% { background-color: #FFD600; color: #000; }
+  50% { background-color: #D32F2F; color: #FFF; }
+  100% { background-color: #FFD600; color: #000; }
+`;
+
+const orangeToRedFlash = keyframes`
+  0% { background-color: #FF6D00; color: #FFF; }
+  50% { background-color: #D32F2F; color: #FFF; }
+  100% { background-color: #FF6D00; color: #FFF; }
 `;
 
 const alertPulse = keyframes`
@@ -81,7 +114,7 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing(1, 1.5),
+    padding: theme.spacing(0.5, 1.5),
     borderBottom: `1px solid ${theme.palette.divider}`,
   },
   headerActions: {
@@ -91,46 +124,55 @@ const useStyles = makeStyles()((theme) => ({
   },
   heroSection: {
     display: 'flex',
+    flexDirection: 'column',
+    padding: theme.spacing(0.75, 2, 0.75, 2),
+    backgroundColor: theme.palette.background.default,
+    gap: theme.spacing(0.2),
+  },
+  mainRow: {
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing(1, 3),
-    backgroundColor: theme.palette.background.default,
+    width: '100%',
+  },
+  footerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingTop: theme.spacing(0.5),
   },
   speedValue: {
-    fontSize: '3.5rem',
+    fontSize: '3.2rem',
     fontWeight: 900,
     lineHeight: 0.8,
     letterSpacing: '-2px',
     color: theme.palette.text.primary,
   },
   unitText: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     fontWeight: 700,
     color: theme.palette.text.secondary,
     marginLeft: theme.spacing(0.5),
     textTransform: 'uppercase',
   },
   avatarBase: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     border: '3px solid transparent',
     transition: 'all 0.3s ease',
     backgroundColor: theme.palette.primary.main,
   },
   ignitionActive: {
     border: `3px solid ${theme.palette.success.main}`,
-    boxShadow: `0 0 8px ${theme.palette.success.main}66`,
-    animation: `${pulse} 2s infinite`,
+    animation: `${pulseGreen} 2s infinite`,
   },
   ignitionStale: {
     border: `3px solid ${theme.palette.success.main}`,
-    boxShadow: 'none',
-    animation: 'none',
   },
   motionActive: {
     border: `3px solid ${theme.palette.warning.main}`,
-    boxShadow: `0 0 8px ${theme.palette.warning.main}66`,
-    animation: `${motionPulse} 2s infinite`,
+    animation: `${pulseMotion} 2s infinite`,
   },
   ignitionInactive: {
     border: `3px solid ${theme.palette.neutral.main}44`,
@@ -140,18 +182,65 @@ const useStyles = makeStyles()((theme) => ({
     height: '24px',
     filter: 'brightness(0) invert(1)',
   },
+  badgeGroup: {
+    display: 'flex',
+    gap: theme.spacing(0.5),
+    alignItems: 'center',
+  },
   badgeBase: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
-    padding: '2px 8px',
+    padding: '1px 6px',
     borderRadius: '4px',
     fontWeight: 900,
-    fontSize: '0.7rem',
+    fontSize: '0.62rem', // Slightly smaller for long labels
     color: theme.palette.text.primary,
     textTransform: 'uppercase',
+    height: '18px',
+    gap: '4px', // Space between icon and text
   },
+  voltageBadge: {
+    height: '22px',
+    padding: '0 8px',
+    fontSize: '0.75rem',
+    fontWeight: 900,
+  },
+  // --- INPUT 1 (YELLOW) ---
+  input1Active: {
+    backgroundColor: '#FFD600',
+    color: 'black',
+    borderColor: '#FBC02D',
+    animation: `${pulseYellow} 2s infinite`,
+  },
+  input1Dull: {
+    backgroundColor: '#FFF59D',
+    color: 'rgba(0,0,0,0.5)',
+    borderColor: '#FBC02D66',
+  },
+  input1Critical: {
+    animation: `${yellowToRedFlash} 1s infinite`,
+    borderColor: '#FBC02D',
+  },
+  // --- INPUT 2 (ORANGE) ---
+  input2Active: {
+    backgroundColor: '#FF6D00',
+    color: 'white',
+    borderColor: '#E65100',
+    animation: `${pulseOrange} 2s infinite`,
+  },
+  input2Dull: {
+    backgroundColor: '#FFCCBC',
+    color: 'rgba(0,0,0,0.6)',
+    borderColor: '#E6510066',
+  },
+  input2Critical: {
+    animation: `${orangeToRedFlash} 1s infinite`,
+    borderColor: '#E65100',
+  },
+  // --- OUTPUTS/SECURITY ---
   out1Active: {
     backgroundColor: theme.palette.info.main,
     color: theme.palette.info.contrastText,
@@ -161,39 +250,30 @@ const useStyles = makeStyles()((theme) => ({
   immobActive: {
     backgroundColor: theme.palette.success.main,
     color: theme.palette.success.contrastText,
-    borderColor: theme.palette.success.dark,
   },
   immobInactive: {
     backgroundColor: theme.palette.action.disabledBackground,
     color: theme.palette.text.disabled,
-    borderColor: theme.palette.divider,
   },
   voltageAlert: {
     backgroundColor: theme.palette.error.main,
     color: theme.palette.error.contrastText,
-    borderColor: theme.palette.error.dark,
     animation: `${alertPulse} 2s infinite ease-in-out`,
-  },
-  badgeRow: {
-    display: 'flex',
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(1),
-    alignItems: 'center',
   },
   content: {
     flex: 1,
     overflowY: 'auto',
-    padding: theme.spacing(1, 2),
+    padding: theme.spacing(0.5, 2),
   },
   table: {
     '& .MuiTableCell-root': {
       borderBottom: 'none',
-      padding: theme.spacing(0.5, 0),
+      padding: theme.spacing(0.3, 0),
     },
   },
   actions: {
     justifyContent: 'space-between',
-    padding: theme.spacing(1, 2),
+    padding: theme.spacing(0.5, 2),
     borderTop: `1px solid ${theme.palette.divider}`,
     backgroundColor: theme.palette.background.default,
   },
@@ -221,14 +301,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   
   const [removing, setRemoving] = useState(false);
 
-  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
-  const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
-  const isOut1Active = position?.attributes?.out1?.toString() === 'true';
-
-  const rawPower = position?.attributes?.power;
-  const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
-  const isPowerCut = powerValue !== null && powerValue < 1.0;
-
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
   const handleRemove = useCatch(async (removed) => {
@@ -247,12 +319,87 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     return classes.ignitionInactive;
   };
 
+  const renderInputBadge = (inputNum) => {
+    const attrs = position?.attributes || {};
+    const suffix = inputNum === 1 ? '1' : '2';
+    const isInput1 = inputNum === 1;
+    
+    const activeClass = isInput1 ? classes.input1Active : classes.input2Active;
+    const dullClass = isInput1 ? classes.input1Dull : classes.input2Dull;
+    const critClass = isInput1 ? classes.input1Critical : classes.input2Critical;
+
+    // 1. Float Switch (High Level / Bilge)
+    if (attrs[`floatSwitch${suffix}`] === true) {
+      return (
+        <Tooltip title="High Level Warning">
+          <div className={cx(classes.badgeBase, critClass)}>
+            <WaterIcon sx={{ fontSize: '0.8rem' }} />
+            <span>Level Warning</span>
+          </div>
+        </Tooltip>
+      );
+    }
+    // 2. Low Fuel
+    if (attrs[`lowFuel${suffix}`] === true) {
+      return (
+        <Tooltip title="Low Fuel Level">
+          <div className={cx(classes.badgeBase, activeClass)}>
+            <LocalGasStationIcon sx={{ fontSize: '0.8rem' }} />
+            <span>LOW FUEL</span>
+          </div>
+        </Tooltip>
+      );
+    }
+    // 3. Battery Isolated
+    if (attrs.hasOwnProperty(`batteryIsolated${suffix}`)) {
+      const isConnected = attrs[`batteryIsolated${suffix}`] === true;
+      return (
+        <Tooltip title={isConnected ? "Battery Connected" : "Battery Isolated"}>
+          <div className={cx(classes.badgeBase, isConnected ? activeClass : dullClass)}>
+            {isConnected ? <BatteryChargingFullIcon sx={{ fontSize: '0.8rem' }} /> : <BatteryAlertIcon sx={{ fontSize: '0.8rem' }} />}
+            <span>{isConnected ? "BATT ON" : "BATT OFF"}</span>
+          </div>
+        </Tooltip>
+      );
+    }
+    // 4. Door Open
+    if (attrs.hasOwnProperty(`doorOpen${suffix}`)) {
+      const isOpen = attrs[`doorOpen${suffix}`] === true;
+      return (
+        <Tooltip title={isOpen ? "Door Open" : "Door Closed"}>
+          <div className={cx(classes.badgeBase, isOpen ? activeClass : dullClass)}>
+            {isOpen ? <MeetingRoomIcon sx={{ fontSize: '0.8rem' }} /> : <DoorFrontIcon sx={{ fontSize: '0.8rem' }} />}
+            <span>{isOpen ? "DOOR OPEN" : "CLOSED"}</span>
+          </div>
+        </Tooltip>
+      );
+    }
+    // 5. Generic Input
+    if (attrs[`in${inputNum}`] === true) {
+      return (
+        <Tooltip title={`Input ${inputNum} Active`}>
+          <div className={cx(classes.badgeBase, activeClass)}>
+            <span>{`IN${inputNum} ACTIVE`}</span>
+          </div>
+        </Tooltip>
+      );
+    }
+    return null;
+  };
+
+  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
+  const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
+  const isOut1Active = position?.attributes?.out1?.toString() === 'true';
+  const powerValue = position?.attributes?.power ? parseFloat(position.attributes.power) : null;
+  const isPowerCut = powerValue !== null && powerValue < 1.0;
+
   return (
     <>
       {(device || position) && (
         <Card elevation={0} className={classes.card}>
+          {/* HEADER */}
           <div className={classes.header}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
               {device?.name || t('sharedUnknown')}
             </Typography>
             <div className={classes.headerActions}>
@@ -269,64 +416,67 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             </div>
           </div>
 
+          {/* HERO SECTION */}
           <div className={classes.heroSection}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
-                <Typography className={classes.speedValue}>
-                  {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
-                </Typography>
-                <Typography className={classes.unitText}>
-                  {formatSpeed(0, speedUnit, t).split(' ')[1]}
-                </Typography>
-              </Box>
-              
-              {position?.fixTime && (
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: 'text.secondary', 
-                    fontWeight: 700,
-                    mt: 0.2, 
-                    pl: 0.8,            
-                    textTransform: 'uppercase',
-                    fontSize: '0.6rem',
-                    letterSpacing: '0.05rem',
-                    display: 'block'
-                  }}
-                >
-                  {dayjs(position.fixTime).fromNow()}
-                </Typography>
-              )}
-            </Box>
-
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-              <div className={classes.badgeRow}>
-                {hasImmobiliserAttr ? (
-                  <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
-                    <ShieldIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />
-                    {isImmobilised ? "SECURE" : "DISARMED"}
-                  </div>
-                ) : (
-                  isOut1Active && (
-                    <div className={cx(classes.badgeBase, classes.out1Active)}>
-                      OUT1
-                    </div>
-                  )
+            <div className={classes.mainRow}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
+                  <Typography className={classes.speedValue}>
+                    {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
+                  </Typography>
+                  <Typography className={classes.unitText}>
+                    {formatSpeed(0, speedUnit, t).split(' ')[1]}
+                  </Typography>
+                </Box>
+                {position?.fixTime && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ color: isDataStale ? 'text.secondary' : 'success.main', fontWeight: 700, fontSize: '0.6rem', pl: 0.5, textTransform: 'uppercase' }}
+                  >
+                    {dayjs(position.fixTime).fromNow()}
+                  </Typography>
                 )}
+              </Box>
 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power"}>
-                  <div className={cx(classes.badgeBase, { [classes.voltageAlert]: isPowerCut })}>
+                  <div className={cx(classes.badgeBase, classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
                     {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />}
                     {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
                   </div>
                 </Tooltip>
+                
+                <Tooltip title={position?.attributes?.tow?.toString() === 'true' ? "Tow" : ""}>
+                  <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
+                    <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
+                  </Avatar>
+                </Tooltip>
               </div>
-              
-              <Tooltip title={position?.attributes?.tow?.toString() === 'true' ? "Tow" : ""}>
-                <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
-                  <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
-                </Avatar>
-              </Tooltip>
+            </div>
+
+            {/* NEW BADGE ROW */}
+            <div className={classes.footerRow}>
+              {/* LEFT: SECURITY & OUTPUTS */}
+              <div className={classes.badgeGroup}>
+                {hasImmobiliserAttr ? (
+                  <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
+                    <ShieldIcon sx={{ fontSize: '0.7rem' }} />
+                    <span>{isImmobilised ? "SECURE" : "DISARMED"}</span>
+                  </div>
+                ) : (
+                  isOut1Active && (
+                    <div className={cx(classes.badgeBase, classes.out1Active)}>
+                       <span>OUT1 ACTIVE</span>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* RIGHT: SENSOR INPUTS */}
+              <div className={classes.badgeGroup}>
+                {renderInputBadge(1)}
+                {renderInputBadge(2)}
+              </div>
             </div>
           </div>
 
@@ -336,12 +486,12 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                 {position && positionItems.split(',').filter((key) => position.hasOwnProperty(key) || position.attributes?.hasOwnProperty(key)).map((key) => (
                   <TableRow key={key}>
                     <TableCell>
-                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.6rem' }}>
                         {positionAttributes[key]?.name || key}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
                         <PositionValue
                           position={position}
                           property={position.hasOwnProperty(key) ? key : null}
@@ -357,10 +507,10 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
           {!isReplay && (
             <CardActions className={classes.actions} disableSpacing>
-              <IconButton onClick={() => navigate(`/replay?deviceId=${device.id}`)}><RouteIcon /></IconButton>
-              <IconButton onClick={() => navigate(`/settings/device/${device.id}/command`)}><SendIcon /></IconButton>
-              <IconButton onClick={() => navigate(`/settings/device/${device.id}`)} disabled={deviceReadonly}><EditIcon /></IconButton>
-              <IconButton color="error" onClick={() => setRemoving(true)} disabled={deviceReadonly}><DeleteIcon /></IconButton>
+              <IconButton size="small" onClick={() => navigate(`/replay?deviceId=${device.id}`)}><RouteIcon fontSize="small" /></IconButton>
+              <IconButton size="small" onClick={() => navigate(`/settings/device/${device.id}/command`)}><SendIcon fontSize="small" /></IconButton>
+              <IconButton size="small" onClick={() => navigate(`/settings/device/${device.id}`)} disabled={deviceReadonly}><EditIcon fontSize="small" /></IconButton>
+              <IconButton size="small" color="error" onClick={() => setRemoving(true)} disabled={deviceReadonly}><DeleteIcon fontSize="small" /></IconButton>
             </CardActions>
           )}
         </Card>
