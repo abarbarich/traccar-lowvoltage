@@ -24,6 +24,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
+import ShieldIcon from '@mui/icons-material/Shield';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -41,6 +42,7 @@ import { formatSpeed } from '../util/formatter';
 
 dayjs.extend(relativeTime);
 
+// --- ANIMATIONS ---
 const pulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
@@ -57,6 +59,12 @@ const alertPulse = keyframes`
   0% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.8; transform: scale(1.02); }
   100% { opacity: 1; transform: scale(1); }
+`;
+
+const bluePulse = keyframes`
+  0% { box-shadow: 0 0 0 0px rgba(33, 150, 243, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(33, 150, 243, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(33, 150, 243, 0); }
 `;
 
 const useStyles = makeStyles()((theme) => ({
@@ -126,23 +134,45 @@ const useStyles = makeStyles()((theme) => ({
     height: '24px',
     filter: 'brightness(0) invert(1)',
   },
-  voltageBadge: {
+  badgeBase: {
     display: 'flex',
     alignItems: 'center',
     backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
-    padding: theme.spacing(0.2, 0.8),
+    padding: '2px 8px',
     borderRadius: '4px',
-    fontWeight: 800,
-    fontSize: '0.75rem',
+    fontWeight: 900,
+    fontSize: '0.7rem',
     color: theme.palette.text.primary,
-    marginBottom: theme.spacing(0.5),
+    textTransform: 'uppercase',
+  },
+  out1Active: {
+    backgroundColor: theme.palette.info.main,
+    color: theme.palette.info.contrastText,
+    borderColor: theme.palette.info.dark,
+    animation: `${bluePulse} 2s infinite`,
+  },
+  immobActive: {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    borderColor: theme.palette.success.dark,
+  },
+  immobInactive: {
+    backgroundColor: theme.palette.action.disabledBackground,
+    color: theme.palette.text.disabled,
+    borderColor: theme.palette.divider,
   },
   voltageAlert: {
     backgroundColor: theme.palette.error.main,
     color: theme.palette.error.contrastText,
     borderColor: theme.palette.error.dark,
     animation: `${alertPulse} 2s infinite ease-in-out`,
+  },
+  badgeRow: {
+    display: 'flex',
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1),
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -172,7 +202,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const deviceReadonly = useDeviceReadonly();
   const isReplay = !!disableActions;
 
-  // Prioritize live data if not in replay
   const livePosition = useSelector((state) => 
     !isReplay ? state.session.positions[deviceId || positionProp?.deviceId] : null
   );
@@ -186,15 +215,14 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   
   const [removing, setRemoving] = useState(false);
 
-  // Improved attribute checks to handle strings/booleans
-  const isIgnitionOn = position?.attributes?.ignition?.toString() === 'true';
-  const isTowing = position?.attributes?.tow?.toString() === 'true';
+  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
+  const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
+  const isOut1Active = position?.attributes?.out1?.toString() === 'true';
 
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
-  // Calculate staleness
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
   const handleRemove = useCatch(async (removed) => {
@@ -206,13 +234,8 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   });
 
   const getAvatarClass = () => {
-    // 1. Check Towing First (High priority alert)
-    if (isTowing && !isDataStale) return classes.motionActive;
-    
-    // 2. Check Ignition Second
-    if (isIgnitionOn && !isDataStale) return classes.ignitionActive;
-    
-    // 3. Fallback
+    if (position?.attributes?.tow?.toString() === 'true' && !isDataStale) return classes.motionActive;
+    if (position?.attributes?.ignition?.toString() === 'true' && !isDataStale) return classes.ignitionActive;
     return classes.ignitionInactive;
   };
 
@@ -272,14 +295,32 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             </Box>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-              <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power")}>
-                <div className={cx(classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
-                  {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />}
-                  {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
-                </div>
-              </Tooltip>
+              {/* HORIZONTAL BADGE ROW */}
+              <div className={classes.badgeRow}>
+                {/* SECURITY / OUT1 BADGE (LEFT OF VOLTAGE) */}
+                {hasImmobiliserAttr ? (
+                  <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
+                    <ShieldIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />
+                    {isImmobilised ? "SECURE" : "DISARMED"}
+                  </div>
+                ) : (
+                  isOut1Active && (
+                    <div className={cx(classes.badgeBase, classes.out1Active)}>
+                      OUT1
+                    </div>
+                  )
+                )}
+
+                {/* VOLTAGE BADGE */}
+                <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power"}>
+                  <div className={cx(classes.badgeBase, { [classes.voltageAlert]: isPowerCut })}>
+                    {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />}
+                    {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
+                  </div>
+                </Tooltip>
+              </div>
               
-              <Tooltip title={isTowing ? "Tow" : ""}>
+              <Tooltip title={position?.attributes?.tow?.toString() === 'true' ? "Tow" : ""}>
                 <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
                   <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
                 </Avatar>
