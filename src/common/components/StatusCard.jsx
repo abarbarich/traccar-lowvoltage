@@ -101,6 +101,7 @@ const useStyles = makeStyles()((theme) => ({
     fontWeight: 900,
     lineHeight: 0.8,
     letterSpacing: '-2px',
+    color: theme.palette.text.primary,
   },
   unitText: {
     fontSize: '1rem',
@@ -120,6 +121,11 @@ const useStyles = makeStyles()((theme) => ({
     border: `3px solid ${theme.palette.success.main}`,
     boxShadow: `0 0 8px ${theme.palette.success.main}66`,
     animation: `${pulse} 2s infinite`,
+  },
+  ignitionStale: {
+    border: `3px solid ${theme.palette.success.main}`,
+    boxShadow: 'none',
+    animation: 'none',
   },
   motionActive: {
     border: `3px solid ${theme.palette.warning.main}`,
@@ -235,7 +241,9 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
   const getAvatarClass = () => {
     if (position?.attributes?.tow?.toString() === 'true' && !isDataStale) return classes.motionActive;
-    if (position?.attributes?.ignition?.toString() === 'true' && !isDataStale) return classes.ignitionActive;
+    if (position?.attributes?.ignition?.toString() === 'true') {
+      return isDataStale ? classes.ignitionStale : classes.ignitionActive;
+    }
     return classes.ignitionInactive;
   };
 
@@ -264,10 +272,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
           <div className={classes.heroSection}>
             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, justifyContent: 'center' }}>
               <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
-                <Typography 
-                  className={classes.speedValue} 
-                  sx={{ color: isDataStale && position?.speed > 0 ? 'error.main' : 'text.primary' }}
-                >
+                <Typography className={classes.speedValue}>
                   {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
                 </Typography>
                 <Typography className={classes.unitText}>
@@ -279,7 +284,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                 <Typography 
                   variant="caption" 
                   sx={{ 
-                    color: isDataStale ? 'error.main' : 'text.secondary', 
+                    color: 'text.secondary', 
                     fontWeight: 700,
                     mt: 0.2, 
                     pl: 0.8,            
@@ -295,9 +300,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             </Box>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-              {/* HORIZONTAL BADGE ROW */}
               <div className={classes.badgeRow}>
-                {/* SECURITY / OUT1 BADGE (LEFT OF VOLTAGE) */}
                 {hasImmobiliserAttr ? (
                   <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
                     <ShieldIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />
@@ -311,7 +314,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                   )
                 )}
 
-                {/* VOLTAGE BADGE */}
                 <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power"}>
                   <div className={cx(classes.badgeBase, { [classes.voltageAlert]: isPowerCut })}>
                     {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />}
