@@ -196,11 +196,12 @@ const useStyles = makeStyles()((theme) => ({
     padding: '1px 6px',
     borderRadius: '4px',
     fontWeight: 900,
-    fontSize: '0.62rem', // Slightly smaller for long labels
+    fontSize: '0.6rem',
     color: theme.palette.text.primary,
     textTransform: 'uppercase',
     height: '18px',
-    gap: '4px', // Space between icon and text
+    gap: '4px',
+    whiteSpace: 'nowrap',
   },
   voltageBadge: {
     height: '22px',
@@ -216,9 +217,9 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${pulseYellow} 2s infinite`,
   },
   input1Dull: {
-    backgroundColor: '#FFF59D',
-    color: 'rgba(0,0,0,0.5)',
-    borderColor: '#FBC02D66',
+    backgroundColor: theme.palette.action.disabledBackground,
+    color: theme.palette.text.disabled,
+    borderColor: theme.palette.divider,
   },
   input1Critical: {
     animation: `${yellowToRedFlash} 1s infinite`,
@@ -232,9 +233,9 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${pulseOrange} 2s infinite`,
   },
   input2Dull: {
-    backgroundColor: '#FFCCBC',
-    color: 'rgba(0,0,0,0.6)',
-    borderColor: '#E6510066',
+    backgroundColor: theme.palette.action.disabledBackground,
+    color: theme.palette.text.disabled,
+    borderColor: theme.palette.divider,
   },
   input2Critical: {
     animation: `${orangeToRedFlash} 1s infinite`,
@@ -328,31 +329,39 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     const dullClass = isInput1 ? classes.input1Dull : classes.input2Dull;
     const critClass = isInput1 ? classes.input1Critical : classes.input2Critical;
 
-    // 1. Float Switch (High Level / Bilge)
-    if (attrs[`floatSwitch${suffix}`] === true) {
+    // Standardized check for key existence
+    const hasAttr = (key) => attrs.hasOwnProperty(key);
+    const isTrue = (key) => attrs[key]?.toString() === 'true';
+
+    // 1. Bilge / Float Switch
+    if (hasAttr(`floatSwitch${suffix}`)) {
+      const active = isTrue(`floatSwitch${suffix}`);
       return (
-        <Tooltip title="High Level Warning">
-          <div className={cx(classes.badgeBase, critClass)}>
+        <Tooltip title={active ? "High Level Warning" : "Level Normal"}>
+          <div className={cx(classes.badgeBase, active ? critClass : dullClass)}>
             <WaterIcon sx={{ fontSize: '0.8rem' }} />
-            <span>Level Warning</span>
+            <span>{active ? "BILGE HIGH" : "BILGE OK"}</span>
           </div>
         </Tooltip>
       );
     }
-    // 2. Low Fuel
-    if (attrs[`lowFuel${suffix}`] === true) {
+
+    // 2. Fuel Level
+    if (hasAttr(`lowFuel${suffix}`)) {
+      const active = isTrue(`lowFuel${suffix}`);
       return (
-        <Tooltip title="Low Fuel Level">
-          <div className={cx(classes.badgeBase, activeClass)}>
+        <Tooltip title={active ? "Low Fuel Level" : "Fuel Level OK"}>
+          <div className={cx(classes.badgeBase, active ? activeClass : dullClass)}>
             <LocalGasStationIcon sx={{ fontSize: '0.8rem' }} />
-            <span>LOW FUEL</span>
+            <span>{active ? "FUEL LOW" : "FUEL OK"}</span>
           </div>
         </Tooltip>
       );
     }
-    // 3. Battery Isolated
-    if (attrs.hasOwnProperty(`batteryIsolated${suffix}`)) {
-      const isConnected = attrs[`batteryIsolated${suffix}`] === true;
+
+    // 3. Battery Isolation
+    if (hasAttr(`batteryIsolated${suffix}`)) {
+      const isConnected = isTrue(`batteryIsolated${suffix}`);
       return (
         <Tooltip title={isConnected ? "Battery Connected" : "Battery Isolated"}>
           <div className={cx(classes.badgeBase, isConnected ? activeClass : dullClass)}>
@@ -362,28 +371,31 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         </Tooltip>
       );
     }
-    // 4. Door Open
-    if (attrs.hasOwnProperty(`doorOpen${suffix}`)) {
-      const isOpen = attrs[`doorOpen${suffix}`] === true;
+
+    // 4. Door State
+    if (hasAttr(`doorOpen${suffix}`)) {
+      const isOpen = isTrue(`doorOpen${suffix}`);
       return (
         <Tooltip title={isOpen ? "Door Open" : "Door Closed"}>
           <div className={cx(classes.badgeBase, isOpen ? activeClass : dullClass)}>
             {isOpen ? <MeetingRoomIcon sx={{ fontSize: '0.8rem' }} /> : <DoorFrontIcon sx={{ fontSize: '0.8rem' }} />}
-            <span>{isOpen ? "DOOR OPEN" : "CLOSED"}</span>
+            <span>{isOpen ? "OPEN" : "CLOSED"}</span>
           </div>
         </Tooltip>
       );
     }
-    // 5. Generic Input
-    if (attrs[`in${inputNum}`] === true) {
+
+    // 5. Generic Input Toggle
+    if (isTrue(`in${inputNum}`)) {
       return (
         <Tooltip title={`Input ${inputNum} Active`}>
           <div className={cx(classes.badgeBase, activeClass)}>
-            <span>{`IN${inputNum} ACTIVE`}</span>
+            <span>{`IN${inputNum} ON`}</span>
           </div>
         </Tooltip>
       );
     }
+
     return null;
   };
 
@@ -397,7 +409,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     <>
       {(device || position) && (
         <Card elevation={0} className={classes.card}>
-          {/* HEADER */}
           <div className={classes.header}>
             <Typography variant="subtitle2" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
               {device?.name || t('sharedUnknown')}
@@ -416,7 +427,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             </div>
           </div>
 
-          {/* HERO SECTION */}
           <div className={classes.heroSection}>
             <div className={classes.mainRow}>
               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -454,9 +464,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
               </div>
             </div>
 
-            {/* NEW BADGE ROW */}
             <div className={classes.footerRow}>
-              {/* LEFT: SECURITY & OUTPUTS */}
               <div className={classes.badgeGroup}>
                 {hasImmobiliserAttr ? (
                   <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
@@ -466,13 +474,12 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                 ) : (
                   isOut1Active && (
                     <div className={cx(classes.badgeBase, classes.out1Active)}>
-                       <span>OUT1 ACTIVE</span>
+                       <span>OUT1 ON</span>
                     </div>
                   )
                 )}
               </div>
 
-              {/* RIGHT: SENSOR INPUTS */}
               <div className={classes.badgeGroup}>
                 {renderInputBadge(1)}
                 {renderInputBadge(2)}
