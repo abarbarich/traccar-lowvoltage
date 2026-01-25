@@ -128,7 +128,6 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.65rem',
     height: '18px',
   },
-  // --- INPUT 1 (YELLOW) ---
   input1Active: {
     backgroundColor: '#FFD600',
     color: 'black',
@@ -144,7 +143,6 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${yellowToRedFlash} 1s infinite`,
     borderColor: '#FBC02D',
   },
-  // --- INPUT 2 (ORANGE) ---
   input2Active: {
     backgroundColor: '#FF6D00',
     color: 'white',
@@ -160,7 +158,6 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${orangeToRedFlash} 1s infinite`,
     borderColor: '#E65100',
   },
-  // --- OTHER BADGES ---
   voltageAlert: {
     backgroundColor: theme.palette.error.main,
     color: theme.palette.error.contrastText,
@@ -185,7 +182,6 @@ const DeviceRow = ({ devices, index, style }) => {
   const { classes, cx } = useStyles();
   const dispatch = useDispatch();
   const t = useTranslation();
-  const admin = useAdministrator();
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
   
   const item = devices[index];
@@ -213,7 +209,6 @@ const DeviceRow = ({ devices, index, style }) => {
     const dullClass = isInput1 ? classes.input1Dull : classes.input2Dull;
     const critClass = isInput1 ? classes.input1Critical : classes.input2Critical;
 
-    // 1. Float Switch
     if (attrs[`floatSwitch${suffix}`] === true) {
       return (
         <Tooltip title="High Level!">
@@ -221,7 +216,6 @@ const DeviceRow = ({ devices, index, style }) => {
         </Tooltip>
       );
     }
-    // 2. Low Fuel
     if (attrs[`lowFuel${suffix}`] === true) {
       return (
         <Tooltip title="Low Fuel Level">
@@ -229,7 +223,6 @@ const DeviceRow = ({ devices, index, style }) => {
         </Tooltip>
       );
     }
-    // 3. Battery (True = Connected/Pulsing, False = Isolated/Dull)
     if (attrs.hasOwnProperty(`batteryIsolated${suffix}`)) {
       const isConnected = attrs[`batteryIsolated${suffix}`] === true;
       return (
@@ -240,7 +233,6 @@ const DeviceRow = ({ devices, index, style }) => {
         </Tooltip>
       );
     }
-    // 4. Door (True = Open/Pulsing, False = Closed/Dull)
     if (attrs.hasOwnProperty(`doorOpen${suffix}`)) {
       const isOpen = attrs[`doorOpen${suffix}`] === true;
       return (
@@ -251,7 +243,6 @@ const DeviceRow = ({ devices, index, style }) => {
         </Tooltip>
       );
     }
-    // 5. Generic Fallback
     if (attrs[`in${inputNum}`] === true) {
       return (
         <Tooltip title={`Input ${inputNum} Active`}>
@@ -262,7 +253,8 @@ const DeviceRow = ({ devices, index, style }) => {
     return null;
   };
 
-  const powerValue = position?.attributes?.power ? parseFloat(position.attributes.power) : null;
+  const rawPower = position?.attributes?.power;
+  const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
   return (
