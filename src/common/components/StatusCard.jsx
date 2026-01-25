@@ -209,7 +209,6 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.75rem',
     fontWeight: 900,
   },
-  // --- INPUT 1 (YELLOW) ---
   input1Active: {
     backgroundColor: '#FFD600',
     color: 'black',
@@ -225,7 +224,6 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${yellowToRedFlash} 1s infinite`,
     borderColor: '#FBC02D',
   },
-  // --- INPUT 2 (ORANGE) ---
   input2Active: {
     backgroundColor: '#FF6D00',
     color: 'white',
@@ -241,7 +239,6 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${orangeToRedFlash} 1s infinite`,
     borderColor: '#E65100',
   },
-  // --- OUTPUTS/SECURITY ---
   out1Active: {
     backgroundColor: theme.palette.info.main,
     color: theme.palette.info.contrastText,
@@ -329,11 +326,9 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     const dullClass = isInput1 ? classes.input1Dull : classes.input2Dull;
     const critClass = isInput1 ? classes.input1Critical : classes.input2Critical;
 
-    // Standardized check for key existence
     const hasAttr = (key) => attrs.hasOwnProperty(key);
     const isTrue = (key) => attrs[key]?.toString() === 'true';
 
-    // 1. Bilge / Float Switch
     if (hasAttr(`floatSwitch${suffix}`)) {
       const active = isTrue(`floatSwitch${suffix}`);
       return (
@@ -345,8 +340,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         </Tooltip>
       );
     }
-
-    // 2. Fuel Level
     if (hasAttr(`lowFuel${suffix}`)) {
       const active = isTrue(`lowFuel${suffix}`);
       return (
@@ -358,8 +351,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         </Tooltip>
       );
     }
-
-    // 3. Battery Isolation
     if (hasAttr(`batteryIsolated${suffix}`)) {
       const isConnected = isTrue(`batteryIsolated${suffix}`);
       return (
@@ -371,8 +362,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         </Tooltip>
       );
     }
-
-    // 4. Door State
     if (hasAttr(`doorOpen${suffix}`)) {
       const isOpen = isTrue(`doorOpen${suffix}`);
       return (
@@ -384,8 +373,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         </Tooltip>
       );
     }
-
-    // 5. Generic Input Toggle
     if (isTrue(`in${inputNum}`)) {
       return (
         <Tooltip title={`Input ${inputNum} Active`}>
@@ -395,14 +382,15 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         </Tooltip>
       );
     }
-
     return null;
   };
 
   const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
   const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
   const isOut1Active = position?.attributes?.out1?.toString() === 'true';
-  const powerValue = position?.attributes?.power ? parseFloat(position.attributes.power) : null;
+  
+  const rawPower = position?.attributes?.power;
+  const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
   return (
