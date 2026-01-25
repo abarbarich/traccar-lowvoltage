@@ -62,8 +62,9 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${pulse} 2s infinite`,
   },
   ignitionStale: {
-    border: `4px solid ${theme.palette.success.main}aa`,
+    border: `4px solid ${theme.palette.success.main}`,
     animation: 'none', 
+    boxShadow: 'none',
   },
   motionActive: {
     border: `4px solid ${theme.palette.warning.main}`,
@@ -168,10 +169,9 @@ const DeviceRow = ({ devices, index, style }) => {
   const getSpeedData = () => {
     if (position && position.hasOwnProperty('speed')) {
       const speedValue = position.speed;
-      if (speedValue > 0 && isDataStale) return { value: '?', unit: '', isStale: true };
       const formatted = formatSpeed(speedValue, speedUnit, t).replace(/\.\d+/, '');
       const parts = formatted.split(' ');
-      return { value: parts[0], unit: parts.length > 1 ? parts[1] : '', isStale: false };
+      return { value: parts[0], unit: parts.length > 1 ? parts[1] : '', isStale: isDataStale };
     }
     return null;
   };
@@ -214,7 +214,12 @@ const DeviceRow = ({ devices, index, style }) => {
           <div className={classes.rightColumn}>
             {speedData && (
               <div className={classes.speedRow}>
-                <Typography sx={{ fontSize: '1.2rem', fontWeight: 900, lineHeight: 1, color: speedData.isStale ? 'error.main' : 'text.primary' }}>
+                <Typography sx={{ 
+                  fontSize: '1.2rem', 
+                  fontWeight: 900, 
+                  lineHeight: 1, 
+                  color: speedData.isStale ? 'text.secondary' : 'text.primary' // Changed from error.main to text.secondary
+                }}>
                   {speedData.value}
                 </Typography>
                 <Typography sx={{ fontSize: '0.6rem', ml: 0.2, color: 'text.secondary', textTransform: 'uppercase' }}>
@@ -224,7 +229,6 @@ const DeviceRow = ({ devices, index, style }) => {
             )}
 
             <div className={classes.iconRow}>
-              {/* IMMOBILISER / OUT1 LOGIC */}
               {hasImmobiliserAttr ? (
                 <Tooltip title={isImmobilised ? "Security: ACTIVE" : "Security: DISARMED"}>
                   <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
@@ -241,7 +245,6 @@ const DeviceRow = ({ devices, index, style }) => {
                 )
               )}
 
-              {/* VOLTAGE BADGE */}
               <Tooltip title={powerValue === null ? t('sharedNoData') : (isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power")}>
                 <div className={cx(classes.badgeBase, classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
                   {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />}
