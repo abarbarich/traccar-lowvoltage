@@ -1,0 +1,73 @@
+documentation for the new device attributes we have implemented. You can add these keys in Settings > Devices > Attributes to unlock the specific UI features for each tracker.
+
+1. Control Modes (Buttons & Status)
+
+These attributes determine which control buttons (if any) appear on the Status Card and which status icon takes priority in the list.
+
+Attribute Key	Type	Description
+enableImmobiliser	Boolean	
+Security Mode.
+
+
+• UI: Shows Shield Icon (Green/Grey).
+
+
+• Controls: Shows "ARM IMMOBILISER" / "DISARM IMMOBILISER" buttons.
+
+
+• Priority: High (Overrides generic output).
+
+enableOutput	Boolean	
+Utility Mode.
+
+
+• UI: Shows "OUTPUT 1 ON" Badge.
+
+
+• Controls: Shows "TURN ON OUTPUT" / "TURN OFF OUTPUT" buttons.
+
+
+• Use Case: Pumps, lights, or generic relays.
+
+2. Input Customization (Badges & Icons)
+
+These attributes let you style the generic inputs (in1, in2) to look like specific sensors without writing complex Computed Attributes.
+
+Attribute Key	Type	Description
+input1Type
+
+
+input2Type
+
+String	
+Changes the icon and color logic for the input badge.
+
+
+Values:
+
+• bilge (Water icon, Red/Critical style)
+• fuel (Gas pump icon, Yellow/Warning style)
+• battery (Battery icon, Green/Connected vs Grey/Isolated)
+• door (Door icon, Open/Closed state)
+
+input1Source
+
+input2Source
+
+String	
+(Optional) Tells the badge to read a specific attribute key instead of the default in1 or in2.
+
+
+Example: Set to floatSwitch if your device sends that specific key.
+
+3. Fuel Gauge Mapping
+
+Attribute Key	Type	Description
+fuelSource	String	
+(Optional) Tells the fuel badge to read a specific key for the percentage value (0-100).
+
+
+Default: fuelLevel
+
+
+Example: Set to adc1 if you are converting raw voltage directly.

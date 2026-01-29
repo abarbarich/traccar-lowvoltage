@@ -220,11 +220,14 @@ const DeviceRow = ({ devices, index, style }) => {
   const speedData = getSpeedDisplay();
 
   const renderFuelBadge = () => {
-    if (!position?.attributes || !position.attributes.hasOwnProperty('fuelLevel')) {
+    // Configurable Fuel Source
+    const fuelSource = item.attributes?.fuelSource || 'fuelLevel';
+
+    if (!position?.attributes || !position.attributes.hasOwnProperty(fuelSource)) {
       return null;
     }
 
-    const level = parseFloat(position.attributes.fuelLevel); 
+    const level = parseFloat(position.attributes[fuelSource]); 
     const isLow = (position.attributes.hasOwnProperty('lowFuel') && position.attributes.lowFuel) || level < 15;
 
     return (
@@ -270,24 +273,17 @@ const DeviceRow = ({ devices, index, style }) => {
       case 'bilge':
         badgeProps = {
           icon: <WaterIcon sx={{ fontSize: '0.8rem' }} />,
-          styleClass: active ? critClassBase : null, // Hide if OK (null means render nothing if we strictly follow old logic, or use offClassBase if we want to show 'OK')
+          styleClass: active ? critClassBase : null, 
           tooltip: active ? "High Level!" : "Level OK"
         };
-        // For list view, we often only want to show alerts. 
-        // If you want to show green state, remove the null check. 
-        // Below assumes we show icon only if active/critical for bilge, or dull if configured?
-        // Let's stick to showing it always if configured, but colored differently.
-        badgeProps.styleClass = active ? critClassBase : offClassBase; 
-        // Actually, for list view, usually we hide non-active states to save space unless crucial.
-        // But let's mirror StatusCard behavior:
         break;
       case 'fuel':
         badgeProps = {
           icon: <LocalGasStationIcon sx={{ fontSize: '0.8rem' }} />,
-          styleClass: active ? onClassBase : null, // Only show low fuel
+          styleClass: active ? onClassBase : null, 
           tooltip: "Low Fuel Level"
         };
-        if (!active) return null; // Don't show "Fuel OK" in compact list
+        if (!active) return null;
         break;
       case 'battery':
         badgeProps = {

@@ -359,6 +359,11 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const deviceHasImmobiliser = device?.attributes?.enableImmobiliser === true;
   const deviceHasOutput = device?.attributes?.enableOutput === true;
 
+  // Input Configurations
+  const input1Source = device?.attributes?.input1Source || 'in1';
+  const input2Source = device?.attributes?.input2Source || 'in2';
+  const fuelSource = device?.attributes?.fuelSource || 'fuelLevel';
+
   // Status for Immobiliser Mode
   const isImmobilised = hasImmobiliserAttr 
     ? position?.attributes?.immobiliser?.toString() === 'true'
@@ -409,10 +414,12 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   };
 
   const renderFuelBadge = () => {
-    if (!position?.attributes || !position.attributes.hasOwnProperty('fuelLevel')) {
+    // Configurable Fuel Source
+    if (!position?.attributes || !position.attributes.hasOwnProperty(fuelSource)) {
       return null;
     }
-    const level = parseFloat(position.attributes.fuelLevel); 
+    const level = parseFloat(position.attributes[fuelSource]); 
+    // Fallback logic for low fuel if not explicitly in attributes
     const isLow = (position.attributes.hasOwnProperty('lowFuel') && position.attributes.lowFuel) || level < 15;
 
     return (
@@ -429,19 +436,13 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   };
 
   const renderInputBadge = (inputNum) => {
-    // --- 1. CONFIGURATION ---
-    // Read Device Attributes for Type and Data Source
-    // Example Device Attributes: 
-    //   input1Type: "bilge" 
-    //   input1Source: "floatSwitch1" (Optional, defaults to "in1")
     const inputType = device?.attributes?.[`input${inputNum}Type`];
-    const inputSource = device?.attributes?.[`input${inputNum}Source`] || `in${inputNum}`;
+    // Use the variable we defined earlier for source
+    const currentSource = inputNum === 1 ? input1Source : input2Source;
     
-    // --- 2. DATA ---
-    const rawVal = position?.attributes?.[inputSource];
-    const active = rawVal?.toString() === 'true'; // Basic boolean check
+    const rawVal = position?.attributes?.[currentSource];
+    const active = rawVal?.toString() === 'true'; 
 
-    // If NO Config is set, fallback to Generic Input style (Legacy Behavior)
     if (!inputType) {
       if (active) {
         const isInput1 = inputNum === 1;
@@ -457,9 +458,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
       return null;
     }
 
-    // --- 3. PRESENTATION TEMPLATES ---
     const isInput1 = inputNum === 1;
-    // Base classes for ON/OFF states based on Input 1 vs Input 2 styling
     const onClassBase = isInput1 ? classes.input1Active : classes.input2Active;
     const offClassBase = isInput1 ? classes.input1Dull : classes.input2Dull;
     const critClassBase = isInput1 ? classes.input1Critical : classes.input2Critical;
@@ -499,7 +498,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
           tooltip: active ? "Door Open" : "Door Closed"
         };
         break;
-      default: // Generic named input
+      default: 
         badgeProps = {
           label: active ? `IN${inputNum} ON` : `IN${inputNum} OFF`,
           icon: null,
@@ -521,6 +520,18 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
+
+  // --- LIST CLEANER ---
+  // Define keys we want to hide from the table because they are shown as badges
+  const hiddenKeys = [
+    'power', 'ignition', 'motion', 'tow', // Standard status icons
+    fuelSource, // The active fuel source
+    input1Source, // The active input 1 source
+    input2Source, // The active input 2 source
+  ];
+  
+  if (deviceHasImmobiliser) hiddenKeys.push('immobiliser', 'out1');
+  if (deviceHasOutput) hiddenKeys.push('out1');
 
   return (
     <>
@@ -609,7 +620,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                     </div>
                   )}
                   
-                  {/* Fallback: If neither configured but data exists, show generic badge */}
+                  {/* Fallback */}
                   {!deviceHasImmobiliser && !deviceHasOutput && isOut1Active && (
                      <div className={cx(classes.badgeBase, classes.out1Active)}>
                        <span>OUTPUT 1 ON</span>
@@ -626,7 +637,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             {!isReplay && (
               <div className={classes.controlRow}>
                 
-                {/* 1. IMMOBILISER MODE CONTROLS (Only if enabled in Device Attributes) */}
+                {/* 1. IMMOBILISER MODE CONTROLS */}
                 {deviceHasImmobiliser && (
                   pendingAction ? (
                     <Button
@@ -667,7 +678,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                   )
                 )}
 
-                {/* 2. GENERIC OUTPUT MODE CONTROLS (Only if enabled in Device Attributes) */}
+                {/* 2. GENERIC OUTPUT MODE CONTROLS */}
                 {deviceHasOutput && (
                    pendingAction ? (
                     <Button
@@ -715,7 +726,10 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
           <CardContent className={classes.content}>
             <Table size="small" className={classes.table}>
               <TableBody>
-                {position && positionItems.split(',').filter((key) => position.hasOwnProperty(key) || position.attributes?.hasOwnProperty(key)).map((key) => (
+                {position && positionItems.split(',')
+                  .filter((key) => !hiddenKeys.includes(key)) // CLEANUP: Hide keys that are already badges
+                  .filter((key) => position.hasOwnProperty(key) || position.attributes?.hasOwnProperty(key))
+                  .map((key) => (
                   <TableRow key={key}>
                     <TableCell>
                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.6rem' }}>
