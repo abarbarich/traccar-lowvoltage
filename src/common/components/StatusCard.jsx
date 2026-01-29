@@ -30,13 +30,14 @@ import ShieldIcon from '@mui/icons-material/Shield';
 import BoltIcon from '@mui/icons-material/Bolt';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import HourglassTopIcon from '@mui/icons-material/HourglassTop'; 
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 
 // Attribute Icons
-import DoorFrontIcon from '@mui/icons-material/DoorFront'; 
-import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'; 
-import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull'; 
-import BatteryAlertIcon from '@mui/icons-material/BatteryAlert'; 
+import DoorFrontIcon from '@mui/icons-material/DoorFront';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
+import BatteryAlertIcon from '@mui/icons-material/BatteryAlert';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import WaterIcon from '@mui/icons-material/Water';
 
@@ -115,8 +116,6 @@ const useStyles = makeStyles()((theme) => ({
     [theme.breakpoints.down('md')]: {
       height: 'auto',           
       maxHeight: '50vh',        
-      // FIX: This forces the card to the bottom of the container, 
-      // preventing the "floating in middle" issue.
       marginTop: 'auto',        
       borderTopLeftRadius: 12,  
       borderTopRightRadius: 12, 
@@ -351,16 +350,29 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
+  // --- ATTRIBUTE DETECTION ---
   const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
-  const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
+  const hasOut1 = position?.attributes?.hasOwnProperty('out1');
+  const isOut1Active = position?.attributes?.out1?.toString() === 'true';
+
+  // --- UI MODE CONFIGURATION (Device Attributes) ---
+  const deviceHasImmobiliser = device?.attributes?.enableImmobiliser === true;
+  const deviceHasOutput = device?.attributes?.enableOutput === true;
+
+  // Status for Immobiliser Mode
+  const isImmobilised = hasImmobiliserAttr 
+    ? position?.attributes?.immobiliser?.toString() === 'true'
+    : isOut1Active;
 
   useEffect(() => {
-    if (pendingAction === 'arming' && isImmobilised) {
-      setPendingAction(null);
-    } else if (pendingAction === 'disarming' && !isImmobilised) {
-      setPendingAction(null);
+    if (deviceHasImmobiliser) {
+      if (pendingAction === 'arming' && isImmobilised) setPendingAction(null);
+      if (pendingAction === 'disarming' && !isImmobilised) setPendingAction(null);
+    } else if (deviceHasOutput) {
+      if (pendingAction === 'on' && isOut1Active) setPendingAction(null);
+      if (pendingAction === 'off' && !isOut1Active) setPendingAction(null);
     }
-  }, [position, pendingAction, isImmobilised]);
+  }, [position, pendingAction, isImmobilised, isOut1Active, deviceHasImmobiliser, deviceHasOutput]);
 
   const handleRemove = useCatch(async (removed) => {
     if (removed) {
@@ -417,74 +429,95 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   };
 
   const renderInputBadge = (inputNum) => {
-    const attrs = position?.attributes || {};
-    const suffix = inputNum === 1 ? '1' : '2';
-    const isInput1 = inputNum === 1;
+    // --- 1. CONFIGURATION ---
+    // Read Device Attributes for Type and Data Source
+    // Example Device Attributes: 
+    //   input1Type: "bilge" 
+    //   input1Source: "floatSwitch1" (Optional, defaults to "in1")
+    const inputType = device?.attributes?.[`input${inputNum}Type`];
+    const inputSource = device?.attributes?.[`input${inputNum}Source`] || `in${inputNum}`;
     
-    const activeClass = isInput1 ? classes.input1Active : classes.input2Active;
-    const dullClass = isInput1 ? classes.input1Dull : classes.input2Dull;
-    const critClass = isInput1 ? classes.input1Critical : classes.input2Critical;
+    // --- 2. DATA ---
+    const rawVal = position?.attributes?.[inputSource];
+    const active = rawVal?.toString() === 'true'; // Basic boolean check
 
-    const hasAttr = (key) => attrs.hasOwnProperty(key);
-    const isTrue = (key) => attrs[key]?.toString() === 'true';
+    // If NO Config is set, fallback to Generic Input style (Legacy Behavior)
+    if (!inputType) {
+      if (active) {
+        const isInput1 = inputNum === 1;
+        const activeClass = isInput1 ? classes.input1Active : classes.input2Active;
+        return (
+          <Tooltip title={`Input ${inputNum} Active`}>
+            <div className={cx(classes.badgeBase, activeClass)}>
+              <span>{`IN${inputNum} ON`}</span>
+            </div>
+          </Tooltip>
+        );
+      }
+      return null;
+    }
 
-    if (hasAttr(`floatSwitch${suffix}`)) {
-      const active = isTrue(`floatSwitch${suffix}`);
-      return (
-        <Tooltip title={active ? "High Level Warning" : "Level Normal"}>
-          <div className={cx(classes.badgeBase, active ? critClass : dullClass)}>
-            <WaterIcon sx={{ fontSize: '0.8rem' }} />
-            <span>{active ? "BILGE HIGH" : "BILGE OK"}</span>
-          </div>
-        </Tooltip>
-      );
+    // --- 3. PRESENTATION TEMPLATES ---
+    const isInput1 = inputNum === 1;
+    // Base classes for ON/OFF states based on Input 1 vs Input 2 styling
+    const onClassBase = isInput1 ? classes.input1Active : classes.input2Active;
+    const offClassBase = isInput1 ? classes.input1Dull : classes.input2Dull;
+    const critClassBase = isInput1 ? classes.input1Critical : classes.input2Critical;
+
+    let badgeProps = { label: "UNKNOWN", icon: null, styleClass: offClassBase, tooltip: "" };
+
+    switch (inputType) {
+      case 'bilge':
+        badgeProps = {
+          label: active ? "HIGH LEVEL" : "LEVEL OK",
+          icon: <WaterIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? critClassBase : offClassBase,
+          tooltip: active ? "Bilge High Water Alert" : "Bilge Level Normal"
+        };
+        break;
+      case 'fuel':
+        badgeProps = {
+          label: active ? "FUEL LOW" : "FUEL OK",
+          icon: <LocalGasStationIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? onClassBase : offClassBase,
+          tooltip: active ? "Low Fuel Level" : "Fuel Level OK"
+        };
+        break;
+      case 'battery':
+        badgeProps = {
+          label: active ? "CONNECTED" : "ISOLATED",
+          icon: active ? <BatteryChargingFullIcon sx={{ fontSize: '0.8rem' }} /> : <BatteryAlertIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? onClassBase : offClassBase,
+          tooltip: active ? "Battery Connected" : "Battery Isolated"
+        };
+        break;
+      case 'door':
+        badgeProps = {
+          label: active ? "OPEN" : "CLOSED",
+          icon: active ? <MeetingRoomIcon sx={{ fontSize: '0.8rem' }} /> : <DoorFrontIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? onClassBase : offClassBase,
+          tooltip: active ? "Door Open" : "Door Closed"
+        };
+        break;
+      default: // Generic named input
+        badgeProps = {
+          label: active ? `IN${inputNum} ON` : `IN${inputNum} OFF`,
+          icon: null,
+          styleClass: active ? onClassBase : offClassBase,
+          tooltip: `Input ${inputNum} State`
+        };
     }
-    if (hasAttr(`lowFuel${suffix}`)) {
-      const active = isTrue(`lowFuel${suffix}`);
-      return (
-        <Tooltip title={active ? "Low Fuel Level" : "Fuel Level OK"}>
-          <div className={cx(classes.badgeBase, active ? activeClass : dullClass)}>
-            <LocalGasStationIcon sx={{ fontSize: '0.8rem' }} />
-            <span>{active ? "FUEL LOW" : "FUEL OK"}</span>
-          </div>
-        </Tooltip>
-      );
-    }
-    if (hasAttr(`batteryIsolated${suffix}`)) {
-      const isConnected = isTrue(`batteryIsolated${suffix}`);
-      return (
-        <Tooltip title={isConnected ? "Battery Connected" : "Battery Isolated"}>
-          <div className={cx(classes.badgeBase, isConnected ? activeClass : dullClass)}>
-            {isConnected ? <BatteryChargingFullIcon sx={{ fontSize: '0.8rem' }} /> : <BatteryAlertIcon sx={{ fontSize: '0.8rem' }} />}
-            <span>{isConnected ? "BATT ON" : "BATT OFF"}</span>
-          </div>
-        </Tooltip>
-      );
-    }
-    if (hasAttr(`doorOpen${suffix}`)) {
-      const isOpen = isTrue(`doorOpen${suffix}`);
-      return (
-        <Tooltip title={isOpen ? "Door Open" : "Door Closed"}>
-          <div className={cx(classes.badgeBase, isOpen ? activeClass : dullClass)}>
-            {isOpen ? <MeetingRoomIcon sx={{ fontSize: '0.8rem' }} /> : <DoorFrontIcon sx={{ fontSize: '0.8rem' }} />}
-            <span>{isOpen ? "OPEN" : "CLOSED"}</span>
-          </div>
-        </Tooltip>
-      );
-    }
-    if (isTrue(`in${inputNum}`)) {
-      return (
-        <Tooltip title={`Input ${inputNum} Active`}>
-          <div className={cx(classes.badgeBase, activeClass)}>
-            <span>{`IN${inputNum} ON`}</span>
-          </div>
-        </Tooltip>
-      );
-    }
-    return null;
+
+    return (
+      <Tooltip title={badgeProps.tooltip}>
+        <div className={cx(classes.badgeBase, badgeProps.styleClass)}>
+          {badgeProps.icon}
+          <span>{badgeProps.label}</span>
+        </div>
+      </Tooltip>
+    );
   };
 
-  const isOut1Active = position?.attributes?.out1?.toString() === 'true';
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -560,9 +593,26 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
             <div className={classes.footerRow}>
               <div className={classes.badgeGroup}>
-                  {!hasImmobiliserAttr && isOut1Active && (
+                  {/* Mode 1: Immobiliser (Shows Shield) */}
+                  {deviceHasImmobiliser && (
+                    <Tooltip title={isImmobilised ? "Immobiliser Armed" : "Immobiliser Disarmed"}>
+                      <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
+                        <ShieldIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+                        <span>{isImmobilised ? "IMMOBILISED" : "DISARMED"}</span>
+                      </div>
+                    </Tooltip>
+                  )}
+                  {/* Mode 2: Generic Output (Shows OUT1 badge) */}
+                  {deviceHasOutput && isOut1Active && (
                     <div className={cx(classes.badgeBase, classes.out1Active)}>
-                       <span>OUT1 ON</span>
+                       <span>OUTPUT 1 ON</span>
+                    </div>
+                  )}
+                  
+                  {/* Fallback: If neither configured but data exists, show generic badge */}
+                  {!deviceHasImmobiliser && !deviceHasOutput && isOut1Active && (
+                     <div className={cx(classes.badgeBase, classes.out1Active)}>
+                       <span>OUTPUT 1 ON</span>
                     </div>
                   )}
               </div>
@@ -572,52 +622,92 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
               </div>
             </div>
 
-            {/* --- STATEFUL BUTTONS WITH PENDING STATE --- */}
-            {!isReplay && hasImmobiliserAttr && (
+            {/* --- STATEFUL BUTTONS --- */}
+            {!isReplay && (
               <div className={classes.controlRow}>
-                {pendingAction ? (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="warning" 
-                    className={classes.actionButton}
-                    startIcon={<HourglassTopIcon fontSize="small" sx={{ fontSize: '0.9rem', animation: 'spin 2s linear infinite' }} />}
-                    disabled={true} 
-                    sx={{
-                      '&.Mui-disabled': { 
-                        backgroundColor: '#ed6c02',
-                        color: 'white',
-                        opacity: 0.8 
-                      }
-                    }}
-                  >
-                     {pendingAction === 'arming' ? 'ARMING QUEUED...' : 'DISARMING QUEUED...'}
-                  </Button>
-                ) : isImmobilised ? (
-                   <Button
-                    size="small"
-                    variant="contained"
-                    color="success"
-                    className={classes.actionButton}
-                    startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <LockOpenIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
-                    onClick={() => handleCustomCommand('setdigout 0', 'disarming')}
-                    disabled={deviceReadonly || commandLoading}
-                  >
-                    DISARM IMMOBILISER
-                  </Button>
-                ) : (
-                   <Button
-                    size="small"
-                    variant="contained"
-                    color="error"
-                    className={classes.actionButton}
-                    startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <LockIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
-                    onClick={() => handleCustomCommand('setdigout 1', 'arming')}
-                    disabled={deviceReadonly || commandLoading}
-                  >
-                    ARM IMMOBILISER
-                  </Button>
+                
+                {/* 1. IMMOBILISER MODE CONTROLS (Only if enabled in Device Attributes) */}
+                {deviceHasImmobiliser && (
+                  pendingAction ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning" 
+                      className={classes.actionButton}
+                      startIcon={<HourglassTopIcon fontSize="small" sx={{ fontSize: '0.9rem', animation: 'spin 2s linear infinite' }} />}
+                      disabled={true} 
+                      sx={{ '&.Mui-disabled': { backgroundColor: '#ed6c02', color: 'white', opacity: 0.8 }}}
+                    >
+                      {pendingAction === 'arming' ? 'ARMING...' : 'DISARMING...'}
+                    </Button>
+                  ) : isImmobilised ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      className={classes.actionButton}
+                      startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <LockOpenIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
+                      onClick={() => handleCustomCommand('setdigout 0', 'disarming')}
+                      disabled={deviceReadonly || commandLoading}
+                    >
+                      DISARM IMMOBILISER
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="error"
+                      className={classes.actionButton}
+                      startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <LockIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
+                      onClick={() => handleCustomCommand('setdigout 1', 'arming')}
+                      disabled={deviceReadonly || commandLoading}
+                    >
+                      ARM IMMOBILISER
+                    </Button>
+                  )
                 )}
+
+                {/* 2. GENERIC OUTPUT MODE CONTROLS (Only if enabled in Device Attributes) */}
+                {deviceHasOutput && (
+                   pendingAction ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning" 
+                      className={classes.actionButton}
+                      startIcon={<HourglassTopIcon fontSize="small" sx={{ fontSize: '0.9rem', animation: 'spin 2s linear infinite' }} />}
+                      disabled={true} 
+                      sx={{ '&.Mui-disabled': { backgroundColor: '#ed6c02', color: 'white', opacity: 0.8 }}}
+                    >
+                      {pendingAction === 'on' ? 'TURNING ON...' : 'TURNING OFF...'}
+                    </Button>
+                  ) : isOut1Active ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="error"
+                      className={classes.actionButton}
+                      startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <PowerSettingsNewIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
+                      onClick={() => handleCustomCommand('setdigout 0', 'off')}
+                      disabled={deviceReadonly || commandLoading}
+                    >
+                      TURN OFF OUTPUT
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      className={classes.actionButton}
+                      startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <PowerSettingsNewIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
+                      onClick={() => handleCustomCommand('setdigout 1', 'on')}
+                      disabled={deviceReadonly || commandLoading}
+                    >
+                      TURN ON OUTPUT
+                    </Button>
+                  )
+                )}
+
               </div>
             )}
           </div>
@@ -664,4 +754,3 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 };
 
 export default StatusCard;
-

@@ -22,11 +22,10 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
 import {
-  formatStatus, getStatusColor, formatSpeed,
+  getStatusColor, formatSpeed,
 } from '../common/util/formatter';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { mapIconKey, mapIcons } from '../map/core/preloadImages';
-import { useAdministrator } from '../common/util/permissions';
 import { useAttributePreference } from '../common/util/preferences';
 
 dayjs.extend(relativeTime);
@@ -157,6 +156,11 @@ const useStyles = makeStyles()((theme) => ({
     animation: `${orangeToRedFlash} 1s infinite`,
     borderColor: '#E65100',
   },
+  out1Active: {
+    backgroundColor: theme.palette.info.main,
+    color: theme.palette.info.contrastText,
+    borderColor: theme.palette.info.dark,
+  },
   voltageAlert: {
     backgroundColor: theme.palette.error.main,
     color: theme.palette.error.contrastText,
@@ -194,7 +198,6 @@ const DeviceRow = ({ devices, index, style }) => {
   // --- DYNAMIC SPEED UNIT LOGIC ---
   const defaultUnit = useAttributePreference('speedUnit', 'kn');
   
-  // UPDATED: Removed jet_ski
   const isBoat = ['boat', 'ship'].includes(item.category);
   const isIgnitionOn = position?.attributes?.ignition;
   
@@ -235,54 +238,117 @@ const DeviceRow = ({ devices, index, style }) => {
   };
 
   const renderInputBadge = (inputNum) => {
-    const attrs = position?.attributes || {};
-    const suffix = inputNum === 1 ? '1' : '2';
-    const isInput1 = inputNum === 1;
+    // --- 1. CONFIGURATION ---
+    const inputType = item.attributes?.[`input${inputNum}Type`];
+    const inputSource = item.attributes?.[`input${inputNum}Source`] || `in${inputNum}`;
     
-    const activeClass = isInput1 ? classes.input1Active : classes.input2Active;
-    const dullClass = isInput1 ? classes.input1Dull : classes.input2Dull;
-    const critClass = isInput1 ? classes.input1Critical : classes.input2Critical;
+    // --- 2. DATA ---
+    const rawVal = position?.attributes?.[inputSource];
+    const active = rawVal === true || rawVal?.toString() === 'true';
 
-    if (attrs[`floatSwitch${suffix}`] === true) {
-      return (
-        <Tooltip title="High Level!">
-          <div className={cx(classes.badgeBase, critClass)}><WaterIcon sx={{ fontSize: '0.8rem' }} /></div>
-        </Tooltip>
-      );
+    // --- 3. STYLES ---
+    const isInput1 = inputNum === 1;
+    const onClassBase = isInput1 ? classes.input1Active : classes.input2Active;
+    const offClassBase = isInput1 ? classes.input1Dull : classes.input2Dull;
+    const critClassBase = isInput1 ? classes.input1Critical : classes.input2Critical;
+
+    // Legacy Fallback: If no config, just show generic IN badge if active
+    if (!inputType) {
+      if (active) {
+        return (
+          <Tooltip title={`Input ${inputNum} Active`}>
+            <div className={cx(classes.badgeBase, onClassBase)}>{`IN${inputNum}`}</div>
+          </Tooltip>
+        );
+      }
+      return null;
     }
-    if (attrs[`lowFuel${suffix}`] === true) {
-      return (
-        <Tooltip title="Low Fuel Level">
-          <div className={cx(classes.badgeBase, activeClass)}><LocalGasStationIcon sx={{ fontSize: '0.8rem' }} /></div>
-        </Tooltip>
-      );
+
+    let badgeProps = { label: `IN${inputNum}`, icon: null, styleClass: offClassBase, tooltip: "" };
+
+    switch (inputType) {
+      case 'bilge':
+        badgeProps = {
+          icon: <WaterIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? critClassBase : null, // Hide if OK (null means render nothing if we strictly follow old logic, or use offClassBase if we want to show 'OK')
+          tooltip: active ? "High Level!" : "Level OK"
+        };
+        // For list view, we often only want to show alerts. 
+        // If you want to show green state, remove the null check. 
+        // Below assumes we show icon only if active/critical for bilge, or dull if configured?
+        // Let's stick to showing it always if configured, but colored differently.
+        badgeProps.styleClass = active ? critClassBase : offClassBase; 
+        // Actually, for list view, usually we hide non-active states to save space unless crucial.
+        // But let's mirror StatusCard behavior:
+        break;
+      case 'fuel':
+        badgeProps = {
+          icon: <LocalGasStationIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? onClassBase : null, // Only show low fuel
+          tooltip: "Low Fuel Level"
+        };
+        if (!active) return null; // Don't show "Fuel OK" in compact list
+        break;
+      case 'battery':
+        badgeProps = {
+          icon: active ? <BatteryChargingFullIcon sx={{ fontSize: '0.8rem' }} /> : <BatteryAlertIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? onClassBase : offClassBase,
+          tooltip: active ? "Battery Connected" : "Battery Isolated"
+        };
+        break;
+      case 'door':
+        badgeProps = {
+          icon: active ? <MeetingRoomIcon sx={{ fontSize: '0.8rem' }} /> : <DoorFrontIcon sx={{ fontSize: '0.8rem' }} />,
+          styleClass: active ? onClassBase : offClassBase,
+          tooltip: active ? "Door Open" : "Door Closed"
+        };
+        break;
+      default:
+        if (!active) return null;
+        badgeProps = {
+          label: `IN${inputNum}`,
+          icon: null,
+          styleClass: onClassBase,
+          tooltip: `Input ${inputNum} Active`
+        };
     }
-    if (attrs.hasOwnProperty(`batteryIsolated${suffix}`)) {
-      const isConnected = attrs[`batteryIsolated${suffix}`] === true;
+
+    return (
+      <Tooltip title={badgeProps.tooltip}>
+        <div className={cx(classes.badgeBase, badgeProps.styleClass)}>
+          {badgeProps.icon}{badgeProps.label && !badgeProps.icon ? badgeProps.label : null}
+        </div>
+      </Tooltip>
+    );
+  };
+
+  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
+  const isOut1Active = position?.attributes?.out1?.toString() === 'true';
+  const isImmobilised = hasImmobiliserAttr 
+    ? position?.attributes?.immobiliser?.toString() === 'true'
+    : isOut1Active;
+
+  // Configuration Flags
+  const deviceHasImmobiliser = item.attributes?.enableImmobiliser === true;
+  const deviceHasOutput = item.attributes?.enableOutput === true;
+
+  // Render Logic for Shield/Output Badge
+  const renderOutputBadge = () => {
+    if (deviceHasImmobiliser) {
       return (
-        <Tooltip title={isConnected ? "Battery Connected" : "Battery Isolated"}>
-          <div className={cx(classes.badgeBase, isConnected ? activeClass : dullClass)}>
-            {isConnected ? <BatteryChargingFullIcon sx={{ fontSize: '0.8rem' }} /> : <BatteryAlertIcon sx={{ fontSize: '0.8rem' }} />}
+        <Tooltip title={isImmobilised ? "Immobilised" : "Disarmed"}>
+          <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
+            <ShieldIcon sx={{ fontSize: '0.8rem' }} />
           </div>
         </Tooltip>
       );
     }
-    if (attrs.hasOwnProperty(`doorOpen${suffix}`)) {
-      const isOpen = attrs[`doorOpen${suffix}`] === true;
-      return (
-        <Tooltip title={isOpen ? "Door Open" : "Door Closed"}>
-          <div className={cx(classes.badgeBase, isOpen ? activeClass : dullClass)}>
-            {isOpen ? <MeetingRoomIcon sx={{ fontSize: '0.8rem' }} /> : <DoorFrontIcon sx={{ fontSize: '0.8rem' }} />}
-          </div>
-        </Tooltip>
-      );
+    if (deviceHasOutput && isOut1Active) {
+      return <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>;
     }
-    if (attrs[`in${inputNum}`] === true) {
-      return (
-        <Tooltip title={`Input ${inputNum} Active`}>
-          <div className={cx(classes.badgeBase, activeClass)}>{`IN${inputNum}`}</div>
-        </Tooltip>
-      );
+    // Fallback if neither config present but data exists (legacy support)
+    if (!deviceHasImmobiliser && !deviceHasOutput && isOut1Active) {
+      return <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>;
     }
     return null;
   };
@@ -335,13 +401,8 @@ const DeviceRow = ({ devices, index, style }) => {
             <div className={classes.iconRow}>
               {renderInputBadge(1)}
               {renderInputBadge(2)}
-              {position.attributes.hasOwnProperty('immobiliser') ? (
-                <div className={cx(classes.badgeBase, position.attributes.immobiliser ? classes.immobActive : classes.immobInactive)}>
-                  <ShieldIcon sx={{ fontSize: '0.8rem' }} />
-                </div>
-              ) : (
-                position.attributes.out1 && <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>
-              )}
+              
+              {renderOutputBadge()}
 
               {renderFuelBadge()}
               
@@ -364,4 +425,3 @@ const DeviceRow = ({ devices, index, style }) => {
 };
 
 export default DeviceRow;
-
