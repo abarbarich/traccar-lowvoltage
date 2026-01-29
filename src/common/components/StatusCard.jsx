@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,6 +14,8 @@ import {
   Tooltip,
   Avatar,
   Box,
+  Button,
+  CircularProgress,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import { keyframes } from '@emotion/react';
@@ -25,6 +27,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PowerOffIcon from '@mui/icons-material/PowerOff';
 import ShieldIcon from '@mui/icons-material/Shield';
+import BoltIcon from '@mui/icons-material/Bolt';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import HourglassTopIcon from '@mui/icons-material/HourglassTop'; 
 
 // Attribute Icons
 import DoorFrontIcon from '@mui/icons-material/DoorFront'; 
@@ -57,43 +63,36 @@ const pulseGreen = keyframes`
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
 `;
-
 const pulseYellow = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 214, 0, 0.7); }
   70% { box-shadow: 0 0 0 8px rgba(255, 214, 0, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 214, 0, 0); }
 `;
-
 const pulseOrange = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 109, 0, 0.7); }
   70% { box-shadow: 0 0 0 8px rgba(255, 109, 0, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 109, 0, 0); }
 `;
-
 const pulseMotion = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0); }
 `;
-
 const yellowToRedFlash = keyframes`
   0% { background-color: #FFD600; color: #000; }
   50% { background-color: #D32F2F; color: #FFF; }
   100% { background-color: #FFD600; color: #000; }
 `;
-
 const orangeToRedFlash = keyframes`
   0% { background-color: #FF6D00; color: #FFF; }
   50% { background-color: #D32F2F; color: #FFF; }
   100% { background-color: #FF6D00; color: #FFF; }
 `;
-
 const alertPulse = keyframes`
   0% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.8; transform: scale(1.02); }
   100% { opacity: 1; transform: scale(1); }
 `;
-
 const bluePulse = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(33, 150, 243, 0.7); }
   70% { box-shadow: 0 0 0 8px rgba(33, 150, 243, 0); }
@@ -105,10 +104,26 @@ const useStyles = makeStyles()((theme) => ({
     pointerEvents: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
     width: '100%',
     borderRadius: 0,
     backgroundColor: theme.palette.background.paper,
+    
+    // --- DESKTOP BEHAVIOR ---
+    height: '100%', 
+
+    // --- MOBILE BEHAVIOR (Bottom Sheet) ---
+    [theme.breakpoints.down('md')]: {
+      height: 'auto',           
+      maxHeight: '50vh',        
+      // FIX: This forces the card to the bottom of the container, 
+      // preventing the "floating in middle" issue.
+      marginTop: 'auto',        
+      borderTopLeftRadius: 12,  
+      borderTopRightRadius: 12, 
+      boxShadow: theme.shadows[20], 
+      position: 'relative',
+      zIndex: 5,
+    },
   },
   header: {
     display: 'flex',
@@ -128,6 +143,24 @@ const useStyles = makeStyles()((theme) => ({
     padding: theme.spacing(0.75, 2, 0.75, 2),
     backgroundColor: theme.palette.background.default,
     gap: theme.spacing(0.2),
+  },
+  controlRow: {
+    display: 'flex',
+    flexDirection: 'row',
+    marginTop: theme.spacing(1),
+    width: '100%',
+  },
+  actionButton: {
+    flex: 1, 
+    fontSize: '0.65rem',
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    boxShadow: 'none',
+    padding: '2px 0',
+    minHeight: '24px',
+    '&:hover': {
+      boxShadow: 'none',
+    },
   },
   mainRow: {
     display: 'flex',
@@ -192,21 +225,21 @@ const useStyles = makeStyles()((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.palette.background.paper,
-    border: `1px solid ${theme.palette.divider}`,
-    padding: '1px 6px',
+    border: '1px solid', 
+    padding: '1px 4px',
     borderRadius: '4px',
     fontWeight: 900,
-    fontSize: '0.6rem',
+    fontSize: '0.65rem',
     color: theme.palette.text.primary,
     textTransform: 'uppercase',
     height: '18px',
     gap: '4px',
     whiteSpace: 'nowrap',
   },
-  voltageBadge: {
-    height: '22px',
-    padding: '0 8px',
-    fontSize: '0.75rem',
+  statusBadge: {
+    height: '18px',
+    width: '52px', 
+    padding: '0 4px',
     fontWeight: 900,
   },
   input1Active: {
@@ -258,6 +291,11 @@ const useStyles = makeStyles()((theme) => ({
     color: theme.palette.error.contrastText,
     animation: `${alertPulse} 2s infinite ease-in-out`,
   },
+  fuelAlert: {
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.warning.contrastText,
+    borderColor: theme.palette.warning.dark,
+  },
   content: {
     flex: 1,
     overflowY: 'auto',
@@ -293,13 +331,36 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const position = livePosition || positionProp;
   const device = useSelector((state) => state.devices.items[deviceId || position?.deviceId]);
   
-  const speedUnit = useAttributePreference('speedUnit', 'kn');
+  // --- DYNAMIC SPEED UNIT LOGIC ---
+  const defaultUnit = useAttributePreference('speedUnit', 'kn');
+  
+  const isBoat = ['boat', 'ship'].includes(device?.category);
+  const isIgnitionOn = position?.attributes?.ignition;
+  
+  const speedUnit = isBoat 
+    ? (isIgnitionOn ? 'kn' : 'kmh') 
+    : defaultUnit;
+  // --------------------------------
+
   const positionAttributes = usePositionAttributes(t);
   const positionItems = useAttributePreference('positionItems', 'fixTime,address,speed,totalDistance');
   
   const [removing, setRemoving] = useState(false);
+  const [commandLoading, setCommandLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
+
+  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
+  const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
+
+  useEffect(() => {
+    if (pendingAction === 'arming' && isImmobilised) {
+      setPendingAction(null);
+    } else if (pendingAction === 'disarming' && !isImmobilised) {
+      setPendingAction(null);
+    }
+  }, [position, pendingAction, isImmobilised]);
 
   const handleRemove = useCatch(async (removed) => {
     if (removed) {
@@ -309,12 +370,50 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     setRemoving(false);
   });
 
+  const handleCustomCommand = useCatch(async (commandString, actionType) => {
+    setCommandLoading(true);
+    try {
+      await fetchOrThrow('/api/commands/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: device.id,
+          type: 'custom',
+          attributes: { data: commandString },
+        }),
+      });
+      setPendingAction(actionType); 
+    } finally {
+      setCommandLoading(false);
+    }
+  });
+
   const getAvatarClass = () => {
     if (position?.attributes?.tow?.toString() === 'true' && !isDataStale) return classes.motionActive;
     if (position?.attributes?.ignition?.toString() === 'true') {
       return isDataStale ? classes.ignitionStale : classes.ignitionActive;
     }
     return classes.ignitionInactive;
+  };
+
+  const renderFuelBadge = () => {
+    if (!position?.attributes || !position.attributes.hasOwnProperty('fuelLevel')) {
+      return null;
+    }
+    const level = parseFloat(position.attributes.fuelLevel); 
+    const isLow = (position.attributes.hasOwnProperty('lowFuel') && position.attributes.lowFuel) || level < 15;
+
+    return (
+      <Tooltip title={`Fuel Level: ${level}%`}>
+        <div 
+          className={cx(classes.badgeBase, classes.statusBadge, { [classes.fuelAlert]: isLow })}
+          style={{ marginTop: '2px' }} 
+        >
+          <LocalGasStationIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+          {level.toFixed(0)}%
+        </div>
+      </Tooltip>
+    );
   };
 
   const renderInputBadge = (inputNum) => {
@@ -385,10 +484,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     return null;
   };
 
-  const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
-  const isImmobilised = position?.attributes?.immobiliser?.toString() === 'true';
   const isOut1Active = position?.attributes?.out1?.toString() === 'true';
-  
   const rawPower = position?.attributes?.power;
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
@@ -396,7 +492,10 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   return (
     <>
       {(device || position) && (
-        <Card elevation={0} className={classes.card}>
+        <Card 
+          elevation={0} 
+          className={classes.card}
+        >
           <div className={classes.header}>
             <Typography variant="subtitle2" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
               {device?.name || t('sharedUnknown')}
@@ -437,12 +536,19 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
               </Box>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Tooltip title={isPowerCut ? "MAIN POWER DISCONNECTED" : "External Power"}>
-                  <div className={cx(classes.badgeBase, classes.voltageBadge, { [classes.voltageAlert]: isPowerCut })}>
-                    {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />}
-                    {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
-                  </div>
-                </Tooltip>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0px' }}>
+                  <Tooltip title={isPowerCut ? "Power Disconnected!" : "External Power"}>
+                    <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.voltageAlert]: isPowerCut })}>
+                      {isPowerCut ? (
+                        <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+                      ) : (
+                        <BoltIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+                      )}
+                      {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
+                    </div>
+                  </Tooltip>
+                  {renderFuelBadge()}
+                </div>
                 
                 <Tooltip title={position?.attributes?.tow?.toString() === 'true' ? "Tow" : ""}>
                   <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
@@ -454,25 +560,66 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
             <div className={classes.footerRow}>
               <div className={classes.badgeGroup}>
-                {hasImmobiliserAttr ? (
-                  <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
-                    <ShieldIcon sx={{ fontSize: '0.7rem' }} />
-                    <span>{isImmobilised ? "SECURE" : "DISARMED"}</span>
-                  </div>
-                ) : (
-                  isOut1Active && (
+                  {!hasImmobiliserAttr && isOut1Active && (
                     <div className={cx(classes.badgeBase, classes.out1Active)}>
                        <span>OUT1 ON</span>
                     </div>
-                  )
-                )}
+                  )}
               </div>
-
               <div className={classes.badgeGroup}>
                 {renderInputBadge(1)}
                 {renderInputBadge(2)}
               </div>
             </div>
+
+            {/* --- STATEFUL BUTTONS WITH PENDING STATE --- */}
+            {!isReplay && hasImmobiliserAttr && (
+              <div className={classes.controlRow}>
+                {pendingAction ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="warning" 
+                    className={classes.actionButton}
+                    startIcon={<HourglassTopIcon fontSize="small" sx={{ fontSize: '0.9rem', animation: 'spin 2s linear infinite' }} />}
+                    disabled={true} 
+                    sx={{
+                      '&.Mui-disabled': { 
+                        backgroundColor: '#ed6c02',
+                        color: 'white',
+                        opacity: 0.8 
+                      }
+                    }}
+                  >
+                     {pendingAction === 'arming' ? 'ARMING QUEUED...' : 'DISARMING QUEUED...'}
+                  </Button>
+                ) : isImmobilised ? (
+                   <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    className={classes.actionButton}
+                    startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <LockOpenIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
+                    onClick={() => handleCustomCommand('setdigout 0', 'disarming')}
+                    disabled={deviceReadonly || commandLoading}
+                  >
+                    DISARM IMMOBILISER
+                  </Button>
+                ) : (
+                   <Button
+                    size="small"
+                    variant="contained"
+                    color="error"
+                    className={classes.actionButton}
+                    startIcon={commandLoading ? <CircularProgress size={12} color="inherit" /> : <LockIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />}
+                    onClick={() => handleCustomCommand('setdigout 1', 'arming')}
+                    disabled={deviceReadonly || commandLoading}
+                  >
+                    ARM IMMOBILISER
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <CardContent className={classes.content}>
@@ -517,3 +664,4 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 };
 
 export default StatusCard;
+

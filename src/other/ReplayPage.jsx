@@ -90,16 +90,20 @@ const useStyles = makeStyles()((theme) => ({
   },
   statusCardInner: {
     pointerEvents: 'auto',
-    height: '45vh',
-    display: 'flex', // Added to ensure StatusCard fills correctly
+    // UPDATED: Changed from fixed '45vh' to 'auto' to shrink-wrap content
+    height: 'auto',
+    maxHeight: '50vh', // Keep a cap so it doesn't grow too large
+    display: 'flex', 
     flexDirection: 'column',
-    overflow: 'hidden',
+    overflowY: 'auto', // Allow scrolling internally if needed
     backgroundColor: theme.palette.background.paper,
     borderBottomLeftRadius: theme.shape.borderRadius,
     borderBottomRightRadius: theme.shape.borderRadius,
     boxShadow: theme.shadows[10],
     [theme.breakpoints.down('md')]: {
-      height: '40vh',
+      // UPDATED: Changed from fixed '40vh' to 'auto'
+      height: 'auto',
+      maxHeight: '60vh', 
       borderRadius: 0,
     },
   },
@@ -284,3 +288,4 @@ const ReplayPage = () => {
 };
 
 export default ReplayPage;
+

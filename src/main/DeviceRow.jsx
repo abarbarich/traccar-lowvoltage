@@ -16,6 +16,7 @@ import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
 import BatteryAlertIcon from '@mui/icons-material/BatteryAlert'; 
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import WaterIcon from '@mui/icons-material/Water';
+import BoltIcon from '@mui/icons-material/Bolt';
 
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -36,37 +37,31 @@ const pulseGreen = keyframes`
   70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
   100% { box-shadow: 0 0 0 0px rgba(76, 175, 80, 0); }
 `;
-
 const pulseYellow = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 214, 0, 0.7); }
   70% { box-shadow: 0 0 0 8px rgba(255, 214, 0, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 214, 0, 0); }
 `;
-
 const pulseOrange = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 109, 0, 0.7); }
   70% { box-shadow: 0 0 0 8px rgba(255, 109, 0, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 109, 0, 0); }
 `;
-
 const pulseMotion = keyframes`
   0% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
   100% { box-shadow: 0 0 0 0px rgba(255, 193, 7, 0); }
 `;
-
 const yellowToRedFlash = keyframes`
   0% { background-color: #FFD600; color: #000; }
   50% { background-color: #D32F2F; color: #FFF; }
   100% { background-color: #FFD600; color: #000; }
 `;
-
 const orangeToRedFlash = keyframes`
   0% { background-color: #FF6D00; color: #FFF; }
   50% { background-color: #D32F2F; color: #FFF; }
   100% { background-color: #FF6D00; color: #FFF; }
 `;
-
 const alertPulse = keyframes`
   0% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.8; transform: scale(1.02); }
@@ -128,6 +123,10 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.65rem',
     height: '18px',
   },
+  statusBadge: {
+    minWidth: '52px',
+    width: '52px', 
+  },
   input1Active: {
     backgroundColor: '#FFD600',
     color: 'black',
@@ -163,6 +162,11 @@ const useStyles = makeStyles()((theme) => ({
     color: theme.palette.error.contrastText,
     animation: `${alertPulse} 2s infinite ease-in-out`,
   },
+  fuelAlert: {
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.warning.contrastText,
+    borderColor: theme.palette.warning.dark,
+  },
   immobActive: {
     backgroundColor: theme.palette.success.main,
     color: theme.palette.success.contrastText,
@@ -186,7 +190,19 @@ const DeviceRow = ({ devices, index, style }) => {
   
   const item = devices[index];
   const position = useSelector((state) => state.session.positions[item.id]);
-  const speedUnit = useAttributePreference('speedUnit', 'kn');
+  
+  // --- DYNAMIC SPEED UNIT LOGIC ---
+  const defaultUnit = useAttributePreference('speedUnit', 'kn');
+  
+  // UPDATED: Removed jet_ski
+  const isBoat = ['boat', 'ship'].includes(item.category);
+  const isIgnitionOn = position?.attributes?.ignition;
+  
+  const speedUnit = isBoat 
+    ? (isIgnitionOn ? 'kn' : 'kmh') 
+    : defaultUnit;
+  // --------------------------------
+
   const isDataStale = item.lastUpdate ? dayjs().diff(dayjs(item.lastUpdate), 'minute') > 10 : true;
 
   const getSpeedDisplay = () => {
@@ -199,6 +215,24 @@ const DeviceRow = ({ devices, index, style }) => {
   };
 
   const speedData = getSpeedDisplay();
+
+  const renderFuelBadge = () => {
+    if (!position?.attributes || !position.attributes.hasOwnProperty('fuelLevel')) {
+      return null;
+    }
+
+    const level = parseFloat(position.attributes.fuelLevel); 
+    const isLow = (position.attributes.hasOwnProperty('lowFuel') && position.attributes.lowFuel) || level < 15;
+
+    return (
+      <Tooltip title={`Fuel Level: ${level}%`}>
+        <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.fuelAlert]: isLow })}>
+          <LocalGasStationIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+          {level.toFixed(0)}%
+        </div>
+      </Tooltip>
+    );
+  };
 
   const renderInputBadge = (inputNum) => {
     const attrs = position?.attributes || {};
@@ -282,6 +316,7 @@ const DeviceRow = ({ devices, index, style }) => {
 
         {position && (
           <div className={classes.rightColumn}>
+            {/* Row 1: Speed */}
             <div className={classes.speedRow}>
               <Typography sx={{ 
                 fontSize: '1.2rem', 
@@ -296,6 +331,7 @@ const DeviceRow = ({ devices, index, style }) => {
               </Typography>
             </div>
 
+            {/* Row 2: Badges */}
             <div className={classes.iconRow}>
               {renderInputBadge(1)}
               {renderInputBadge(2)}
@@ -306,10 +342,19 @@ const DeviceRow = ({ devices, index, style }) => {
               ) : (
                 position.attributes.out1 && <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>
               )}
-              <div className={cx(classes.badgeBase, { [classes.voltageAlert]: isPowerCut })}>
-                {isPowerCut && <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />}
-                {powerValue !== null ? `${powerValue.toFixed(1)}V` : "--.-V"}
-              </div>
+
+              {renderFuelBadge()}
+              
+              <Tooltip title={isPowerCut ? "Power Disconnected!" : "External Power"}>
+                <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.voltageAlert]: isPowerCut })}>
+                  {isPowerCut ? (
+                    <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+                  ) : (
+                    <BoltIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+                  )}
+                  {powerValue !== null ? `${powerValue.toFixed(1)}V` : "--.-V"}
+                </div>
+              </Tooltip>
             </div>
           </div>
         )}
@@ -319,3 +364,4 @@ const DeviceRow = ({ devices, index, style }) => {
 };
 
 export default DeviceRow;
+

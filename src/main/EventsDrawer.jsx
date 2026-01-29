@@ -179,3 +179,4 @@ const EventsDrawer = ({ open, onClose }) => {
 };
 
 export default EventsDrawer;
+

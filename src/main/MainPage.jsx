@@ -63,39 +63,51 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     minHeight: 0,
   },
-  // --- New StatusCard Styles ---
+  // --- StatusCard Container Styles ---
   statusCardContainer: {
     position: 'fixed',
     zIndex: 7,
-    pointerEvents: 'none', // Allow map interaction through the container
+    pointerEvents: 'none', // Allows clicking the map *behind* the container area
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end', // Aligns content to bottom
+    
+    // DESKTOP: Sidebar positioning
     [theme.breakpoints.up('md')]: {
       left: theme.spacing(1.5),
       bottom: theme.spacing(1.5),
       width: theme.dimensions.drawerWidthDesktop,
-      // Adjust height so it doesn't cover the toolbar
       maxHeight: `calc(100% - ${theme.spacing(11)})`, 
     },
+    
+    // MOBILE: Bottom sheet positioning
     [theme.breakpoints.down('md')]: {
       left: 0,
       right: 0,
       bottom: 0,
-      height: '50vh', // Half screen height on mobile
+      height: '50vh', // Defines the maximum area available for the card
       width: '100%',
     },
   },
   statusCardInner: {
-    pointerEvents: 'auto', // Re-enable clicks for the card content
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    overflow: 'hidden',
-    boxShadow: theme.shadows[10],
+    
+    // DESKTOP: Needs container styling (shadow, overflow) because StatusCard is 'flat' on desktop
+    [theme.breakpoints.up('md')]: {
+      pointerEvents: 'auto',
+      boxShadow: theme.shadows[10],
+      overflow: 'hidden',
+      borderRadius: theme.spacing(1), // Optional: rounds desktop card corners slightly
+    },
+
+    // MOBILE: Container must be INVISIBLE and PASS-THROUGH
+    // The StatusCard component inside handles its own shadow, radius, and pointerEvents.
     [theme.breakpoints.down('md')]: {
-      borderTopLeftRadius: theme.spacing(2),
-      borderTopRightRadius: theme.spacing(2),
+      pointerEvents: 'none', // Crucial: lets you click map through the empty top part
+      boxShadow: 'none',     // FIX: Removes the "ghost box" shadow
+      background: 'transparent',
     },
   },
 }));
@@ -193,8 +205,6 @@ const MainPage = () => {
               deviceId={selectedDeviceId}
               position={selectedPosition}
               onClose={() => dispatch(devicesActions.selectId(null))}
-              // Set to 0 because we now handle positioning in MainPage
-              desktopPadding={0} 
             />
           </div>
         </div>
@@ -204,3 +214,4 @@ const MainPage = () => {
 };
 
 export default MainPage;
+
