@@ -33,7 +33,19 @@ const { reducer, actions } = createSlice({
     updatePositions(state, action) {
       const liveRoutes = state.user.attributes.mapLiveRoutes || state.server.attributes.mapLiveRoutes || 'none';
       const liveRoutesLimit = state.user.attributes['web.liveRouteLength'] || state.server.attributes['web.liveRouteLength'] || 10;
+      
       action.payload.forEach((position) => {
+        // --- SMART MERGE FIX ---
+        // If this packet is just a Command Result (has 'result' but usually no sensors),
+        // we merge it with the existing data so we don't lose Fuel/Ignition status in the UI.
+        if (position.attributes && position.attributes.hasOwnProperty('result')) {
+          const existingPosition = state.positions[position.deviceId];
+          if (existingPosition && existingPosition.attributes) {
+            position.attributes = { ...existingPosition.attributes, ...position.attributes };
+          }
+        }
+        // -----------------------
+
         state.positions[position.deviceId] = position;
         if (liveRoutes !== 'none') {
           const route = state.history[position.deviceId] || [];

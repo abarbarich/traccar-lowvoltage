@@ -16,6 +16,8 @@ import {
   Box,
   Button,
   CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import { keyframes } from '@emotion/react';
@@ -348,6 +350,9 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const [removing, setRemoving] = useState(false);
   const [commandLoading, setCommandLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  
+  // --- SNACKBAR STATE ---
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const isDataStale = !isReplay && position ? dayjs().diff(dayjs(position.fixTime), 'minute') > 10 : false;
 
@@ -356,7 +361,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const hasOut1 = position?.attributes?.hasOwnProperty('out1');
   const isOut1Active = position?.attributes?.out1?.toString() === 'true';
 
-  // --- UI MODE CONFIGURATION (Device Attributes) ---
+  // --- UI MODE CONFIGURATION ---
   const deviceHasImmobiliser = device?.attributes?.enableImmobiliser === true;
   const deviceHasOutput = device?.attributes?.enableOutput === true;
 
@@ -368,9 +373,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   // Hours Configuration
   const hoursSource = device?.attributes?.hoursSource || 'hours';
   const isGenerator = device?.category === 'generator';
-  // "Hours Only" overrides everything if true (or if category is generator)
   const showHoursOnly = device?.attributes?.enableHoursOnly === true || isGenerator;
-  // "Show Both" only active if we aren't already in "Hours Only" mode
   const showBoth = !showHoursOnly && device?.attributes?.enableHours === true;
 
   // --- CALCULATE VALUES ---
@@ -384,6 +387,13 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const isImmobilised = hasImmobiliserAttr 
     ? position?.attributes?.immobiliser?.toString() === 'true'
     : isOut1Active;
+
+  // --- RESET STATE ON DEVICE CHANGE (BUG FIX) ---
+  useEffect(() => {
+    setPendingAction(null);
+    setCommandLoading(false);
+    setSnackbarOpen(false);
+  }, [deviceId]);
 
   useEffect(() => {
     if (deviceHasImmobiliser) {
@@ -415,7 +425,8 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
           attributes: { data: commandString },
         }),
       });
-      setPendingAction(actionType); 
+      setPendingAction(actionType);
+      setSnackbarOpen(true); // <--- SHOW SNACKBAR
     } finally {
       setCommandLoading(false);
     }
@@ -535,17 +546,16 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
   // --- LIST CLEANER ---
-  // Define keys we want to hide from the table because they are shown as badges
   const hiddenKeys = [
-    'power', 'ignition', 'motion', 'tow', // Standard status icons
-    fuelSource, // The active fuel source
-    input1Source, // The active input 1 source
-    input2Source, // The active input 2 source
+    'power', 'ignition', 'motion', 'tow', 
+    fuelSource, 
+    input1Source, 
+    input2Source, 
   ];
   
   if (deviceHasImmobiliser) hiddenKeys.push('immobiliser', 'out1');
   if (deviceHasOutput) hiddenKeys.push('out1');
-  if (showHoursOnly || showBoth) hiddenKeys.push(hoursSource); // Hide hours from list if shown in hero
+  if (showHoursOnly || showBoth) hiddenKeys.push(hoursSource);
 
   return (
     <>
@@ -576,19 +586,15 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             <div className={classes.mainRow}>
               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 
-                {/* --- HERO STAT --- */}
                 <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
                   <Typography className={classes.speedValue}>
-                    {/* If HoursOnly, show Hours. Else show Speed */}
                     {showHoursOnly ? hoursValue : speedDisplay[0].replace(/\.\d+/, '')}
                   </Typography>
                   <Typography className={classes.unitText}>
-                    {/* Unit swap */}
                     {showHoursOnly ? 'HR' : speedDisplay[1]}
                   </Typography>
                 </Box>
 
-                {/* --- SECONDARY STAT (Show Both Mode) --- */}
                 {showBoth && (
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                     <AccessTimeIcon sx={{ fontSize: '0.8rem', color: 'text.secondary', mr: 0.5 }} />
@@ -598,7 +604,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                   </Box>
                 )}
 
-                {/* ... FixTime ... */}
                 {position?.fixTime && (
                   <Typography 
                     variant="caption" 
@@ -634,7 +639,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
             <div className={classes.footerRow}>
               <div className={classes.badgeGroup}>
-                  {/* Mode 1: Immobiliser (Shows Shield) */}
                   {deviceHasImmobiliser && (
                     <Tooltip title={isImmobilised ? "Immobiliser Armed" : "Immobiliser Disarmed"}>
                       <div className={cx(classes.badgeBase, isImmobilised ? classes.immobActive : classes.immobInactive)}>
@@ -643,14 +647,12 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                       </div>
                     </Tooltip>
                   )}
-                  {/* Mode 2: Generic Output (Shows OUT1 badge) */}
                   {deviceHasOutput && isOut1Active && (
                     <div className={cx(classes.badgeBase, classes.out1Active)}>
                        <span>OUTPUT 1 ON</span>
                     </div>
                   )}
                   
-                  {/* Fallback */}
                   {!deviceHasImmobiliser && !deviceHasOutput && isOut1Active && (
                      <div className={cx(classes.badgeBase, classes.out1Active)}>
                        <span>OUTPUT 1 ON</span>
@@ -663,11 +665,8 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
               </div>
             </div>
 
-            {/* --- STATEFUL BUTTONS --- */}
             {!isReplay && (
               <div className={classes.controlRow}>
-                
-                {/* 1. IMMOBILISER MODE CONTROLS */}
                 {deviceHasImmobiliser && (
                   pendingAction ? (
                     <Button
@@ -708,7 +707,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                   )
                 )}
 
-                {/* 2. GENERIC OUTPUT MODE CONTROLS */}
                 {deviceHasOutput && (
                    pendingAction ? (
                     <Button
@@ -757,7 +755,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
             <Table size="small" className={classes.table}>
               <TableBody>
                 {position && positionItems.split(',')
-                  .filter((key) => !hiddenKeys.includes(key)) // CLEANUP: Hide keys that are already badges
+                  .filter((key) => !hiddenKeys.includes(key)) 
                   .filter((key) => position.hasOwnProperty(key) || position.attributes?.hasOwnProperty(key))
                   .map((key) => (
                   <TableRow key={key}>
@@ -791,6 +789,18 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
           )}
         </Card>
       )}
+
+      {/* --- SNACKBAR NOTIFICATION --- */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%', fontWeight: 'bold' }}>
+          Command Queued
+        </Alert>
+      </Snackbar>
 
       <RemoveDialog open={removing} endpoint="devices" itemId={device?.id} onResult={handleRemove} />
     </>
