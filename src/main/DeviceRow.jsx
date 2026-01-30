@@ -17,6 +17,7 @@ import BatteryAlertIcon from '@mui/icons-material/BatteryAlert';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import WaterIcon from '@mui/icons-material/Water';
 import BoltIcon from '@mui/icons-material/Bolt';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -199,30 +200,44 @@ const DeviceRow = ({ devices, index, style }) => {
   const defaultUnit = useAttributePreference('speedUnit', 'kn');
   
   const isBoat = ['boat', 'ship'].includes(item.category);
-  const isIgnitionOn = position?.attributes?.ignition;
   
   const speedUnit = isBoat 
-    ? (isIgnitionOn ? 'kn' : 'kmh') 
+    ? (position?.attributes?.ignition ? 'kn' : 'kmh') 
     : defaultUnit;
   // --------------------------------
 
   const isDataStale = item.lastUpdate ? dayjs().diff(dayjs(item.lastUpdate), 'minute') > 10 : true;
 
-  const getSpeedDisplay = () => {
+  // --- CONFIGURATION CHECKS ---
+  const hoursSource = item.attributes?.hoursSource || 'hours';
+  const isGenerator = item.category === 'generator';
+  // "Hours Only" overrides everything if true (or if category is generator)
+  const showHoursOnly = item.attributes?.enableHoursOnly === true || isGenerator;
+  // "Show Both" only active if we aren't already in "Hours Only" mode
+  const showBoth = !showHoursOnly && item.attributes?.enableHours === true;
+
+  // --- STAT CALCULATIONS ---
+  const speedStat = (() => {
     if (position && position.hasOwnProperty('speed')) {
       const formatted = formatSpeed(position.speed, speedUnit, t).replace(/\.\d+/, '');
       const parts = formatted.split(' ');
       return { value: parts[0], unit: parts.length > 1 ? parts[1] : '' };
     }
     return { value: '0', unit: '' };
-  };
+  })();
 
-  const speedData = getSpeedDisplay();
+  const hoursStat = (() => {
+    // Only fetch if we actually need to display it
+    if ((showHoursOnly || showBoth) && position?.attributes?.[hoursSource]) {
+      const raw = parseFloat(position.attributes[hoursSource]);
+      return (raw / 3600000).toFixed(1); // Convert ms to hours
+    }
+    return null;
+  })();
 
   const renderFuelBadge = () => {
-    // Configurable Fuel Source
     const fuelSource = item.attributes?.fuelSource || 'fuelLevel';
-
+    
     if (!position?.attributes || !position.attributes.hasOwnProperty(fuelSource)) {
       return null;
     }
@@ -241,21 +256,18 @@ const DeviceRow = ({ devices, index, style }) => {
   };
 
   const renderInputBadge = (inputNum) => {
-    // --- 1. CONFIGURATION ---
     const inputType = item.attributes?.[`input${inputNum}Type`];
     const inputSource = item.attributes?.[`input${inputNum}Source`] || `in${inputNum}`;
     
-    // --- 2. DATA ---
     const rawVal = position?.attributes?.[inputSource];
     const active = rawVal === true || rawVal?.toString() === 'true';
 
-    // --- 3. STYLES ---
     const isInput1 = inputNum === 1;
     const onClassBase = isInput1 ? classes.input1Active : classes.input2Active;
     const offClassBase = isInput1 ? classes.input1Dull : classes.input2Dull;
     const critClassBase = isInput1 ? classes.input1Critical : classes.input2Critical;
 
-    // Legacy Fallback: If no config, just show generic IN badge if active
+    // Legacy Fallback
     if (!inputType) {
       if (active) {
         return (
@@ -324,11 +336,9 @@ const DeviceRow = ({ devices, index, style }) => {
     ? position?.attributes?.immobiliser?.toString() === 'true'
     : isOut1Active;
 
-  // Configuration Flags
   const deviceHasImmobiliser = item.attributes?.enableImmobiliser === true;
   const deviceHasOutput = item.attributes?.enableOutput === true;
 
-  // Render Logic for Shield/Output Badge
   const renderOutputBadge = () => {
     if (deviceHasImmobiliser) {
       return (
@@ -342,7 +352,7 @@ const DeviceRow = ({ devices, index, style }) => {
     if (deviceHasOutput && isOut1Active) {
       return <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>;
     }
-    // Fallback if neither config present but data exists (legacy support)
+    // Fallback if neither config present but data exists
     if (!deviceHasImmobiliser && !deviceHasOutput && isOut1Active) {
       return <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>;
     }
@@ -378,19 +388,33 @@ const DeviceRow = ({ devices, index, style }) => {
 
         {position && (
           <div className={classes.rightColumn}>
-            {/* Row 1: Speed */}
-            <div className={classes.speedRow}>
-              <Typography sx={{ 
-                fontSize: '1.2rem', 
-                fontWeight: 900, 
-                lineHeight: 1,
-                color: isDataStale ? 'text.secondary' : 'text.primary'
-              }}>
-                {speedData.value}
-              </Typography>
-              <Typography sx={{ fontSize: '0.6rem', ml: 0.2, color: 'text.secondary', textTransform: 'uppercase' }}>
-                {speedData.unit}
-              </Typography>
+            {/* --- UPDATED HERO ROW --- */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              
+              {/* PRIMARY STAT: Shows Speed normally, OR Hours if "HoursOnly" is set */}
+              <div className={classes.speedRow}>
+                <Typography sx={{ 
+                  fontSize: '1.2rem', 
+                  fontWeight: 900, 
+                  lineHeight: 1,
+                  color: isDataStale ? 'text.secondary' : 'text.primary'
+                }}>
+                  {showHoursOnly ? (hoursStat || '0.0') : speedStat.value}
+                </Typography>
+                <Typography sx={{ fontSize: '0.6rem', ml: 0.2, color: 'text.secondary', textTransform: 'uppercase' }}>
+                  {showHoursOnly ? 'HR' : speedStat.unit}
+                </Typography>
+              </div>
+
+              {/* SECONDARY STAT: Shows Hours only if "Show Both" is active */}
+              {showBoth && hoursStat && (
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: '-2px' }}>
+                  <AccessTimeIcon sx={{ fontSize: '0.6rem', color: 'text.secondary', mr: 0.2 }} />
+                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary' }}>
+                    {hoursStat} <span style={{ fontSize: '0.6rem' }}>HR</span>
+                  </Typography>
+                </div>
+              )}
             </div>
 
             {/* Row 2: Badges */}

@@ -32,6 +32,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 // Attribute Icons
 import DoorFrontIcon from '@mui/icons-material/DoorFront';
@@ -363,6 +364,21 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const input1Source = device?.attributes?.input1Source || 'in1';
   const input2Source = device?.attributes?.input2Source || 'in2';
   const fuelSource = device?.attributes?.fuelSource || 'fuelLevel';
+  
+  // Hours Configuration
+  const hoursSource = device?.attributes?.hoursSource || 'hours';
+  const isGenerator = device?.category === 'generator';
+  // "Hours Only" overrides everything if true (or if category is generator)
+  const showHoursOnly = device?.attributes?.enableHoursOnly === true || isGenerator;
+  // "Show Both" only active if we aren't already in "Hours Only" mode
+  const showBoth = !showHoursOnly && device?.attributes?.enableHours === true;
+
+  // --- CALCULATE VALUES ---
+  const speedDisplay = position ? formatSpeed(position.speed, speedUnit, t).split(' ') : ['0', ''];
+  
+  const hoursValue = ((showHoursOnly || showBoth) && position?.attributes?.[hoursSource]) 
+    ? (parseFloat(position.attributes[hoursSource]) / 3600000).toFixed(1)
+    : '0.0';
 
   // Status for Immobiliser Mode
   const isImmobilised = hasImmobiliserAttr 
@@ -414,12 +430,10 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   };
 
   const renderFuelBadge = () => {
-    // Configurable Fuel Source
     if (!position?.attributes || !position.attributes.hasOwnProperty(fuelSource)) {
       return null;
     }
     const level = parseFloat(position.attributes[fuelSource]); 
-    // Fallback logic for low fuel if not explicitly in attributes
     const isLow = (position.attributes.hasOwnProperty('lowFuel') && position.attributes.lowFuel) || level < 15;
 
     return (
@@ -437,11 +451,10 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
   const renderInputBadge = (inputNum) => {
     const inputType = device?.attributes?.[`input${inputNum}Type`];
-    // Use the variable we defined earlier for source
     const currentSource = inputNum === 1 ? input1Source : input2Source;
     
     const rawVal = position?.attributes?.[currentSource];
-    const active = rawVal?.toString() === 'true'; 
+    const active = rawVal === true || rawVal?.toString() === 'true'; 
 
     if (!inputType) {
       if (active) {
@@ -532,6 +545,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   
   if (deviceHasImmobiliser) hiddenKeys.push('immobiliser', 'out1');
   if (deviceHasOutput) hiddenKeys.push('out1');
+  if (showHoursOnly || showBoth) hiddenKeys.push(hoursSource); // Hide hours from list if shown in hero
 
   return (
     <>
@@ -561,18 +575,34 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
           <div className={classes.heroSection}>
             <div className={classes.mainRow}>
               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                
+                {/* --- HERO STAT --- */}
                 <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
                   <Typography className={classes.speedValue}>
-                    {position ? formatSpeed(position.speed, speedUnit, t).split(' ')[0].replace(/\.\d+/, '') : '0'}
+                    {/* If HoursOnly, show Hours. Else show Speed */}
+                    {showHoursOnly ? hoursValue : speedDisplay[0].replace(/\.\d+/, '')}
                   </Typography>
                   <Typography className={classes.unitText}>
-                    {formatSpeed(0, speedUnit, t).split(' ')[1]}
+                    {/* Unit swap */}
+                    {showHoursOnly ? 'HR' : speedDisplay[1]}
                   </Typography>
                 </Box>
+
+                {/* --- SECONDARY STAT (Show Both Mode) --- */}
+                {showBoth && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                    <AccessTimeIcon sx={{ fontSize: '0.8rem', color: 'text.secondary', mr: 0.5 }} />
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                      {hoursValue} HR
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* ... FixTime ... */}
                 {position?.fixTime && (
                   <Typography 
                     variant="caption" 
-                    sx={{ color: isDataStale ? 'text.secondary' : 'success.main', fontWeight: 700, fontSize: '0.6rem', pl: 0.5, textTransform: 'uppercase' }}
+                    sx={{ color: isDataStale ? 'text.secondary' : 'success.main', fontWeight: 700, fontSize: '0.6rem', mt: 0.2, textTransform: 'uppercase' }}
                   >
                     {dayjs(position.fixTime).fromNow()}
                   </Typography>

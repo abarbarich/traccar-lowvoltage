@@ -42,6 +42,20 @@ export default (t) => useMemo(() => ({
     type: 'boolean',
   },
   
+  // --- HOURS CONFIGURATION ---
+  enableHours: {
+    name: 'UI: Show Speed + Hours',
+    type: 'boolean',
+  },
+  enableHoursOnly: {
+    name: 'UI: Show Hours Only (No Speed)',
+    type: 'boolean',
+  },
+  hoursSource: {
+    name: 'UI: Hour Meter Source (default: hours)',
+    type: 'string',
+  },
+
   // --- NEW UI INPUT CONFIGURATION ---
   input1Type: {
     name: 'UI: Input 1 Type (bilge, fuel, battery, door)',
