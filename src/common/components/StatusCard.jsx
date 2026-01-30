@@ -388,7 +388,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
     ? position?.attributes?.immobiliser?.toString() === 'true'
     : isOut1Active;
 
-  // --- RESET STATE ON DEVICE CHANGE (BUG FIX) ---
+  // --- RESET STATE ON DEVICE CHANGE ---
   useEffect(() => {
     setPendingAction(null);
     setCommandLoading(false);
@@ -426,7 +426,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
         }),
       });
       setPendingAction(actionType);
-      setSnackbarOpen(true); // <--- SHOW SNACKBAR
+      setSnackbarOpen(true);
     } finally {
       setCommandLoading(false);
     }
@@ -451,7 +451,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
       <Tooltip title={`Fuel Level: ${level}%`}>
         <div 
           className={cx(classes.badgeBase, classes.statusBadge, { [classes.fuelAlert]: isLow })}
-          style={{ marginTop: '2px' }} 
+          // Removed manual marginTop here for better row alignment
         >
           <LocalGasStationIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
           {level.toFixed(0)}%
@@ -584,6 +584,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
 
           <div className={classes.heroSection}>
             <div className={classes.mainRow}>
+              {/* --- LEFT COL: SPEED & TIME --- */}
               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 
                 <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
@@ -614,8 +615,21 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                 )}
               </Box>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0px' }}>
+              {/* --- RIGHT COL: AVATAR & BADGES --- */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                
+                {/* 1. TOP: AVATAR */}
+                <Tooltip title={position?.attributes?.tow?.toString() === 'true' ? "Tow" : ""}>
+                  <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
+                    <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
+                  </Avatar>
+                </Tooltip>
+
+                {/* 2. BOTTOM: BADGE ROW (Fuel left of Voltage) */}
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '4px' }}>
+                  
+                  {renderFuelBadge()}
+
                   <Tooltip title={isPowerCut ? "Power Disconnected!" : "External Power"}>
                     <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.voltageAlert]: isPowerCut })}>
                       {isPowerCut ? (
@@ -626,14 +640,8 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                       {powerValue !== null ? `${powerValue.toFixed(1)}V` : "---V"}
                     </div>
                   </Tooltip>
-                  {renderFuelBadge()}
                 </div>
-                
-                <Tooltip title={position?.attributes?.tow?.toString() === 'true' ? "Tow" : ""}>
-                  <Avatar className={cx(classes.avatarBase, getAvatarClass())}>
-                    <img className={classes.iconImage} src={mapIcons[mapIconKey(device?.category || 'default')]} alt="" />
-                  </Avatar>
-                </Tooltip>
+
               </div>
             </div>
 
