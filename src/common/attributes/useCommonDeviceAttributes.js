@@ -32,33 +32,39 @@ export default (t) => useMemo(() => ({
     type: 'string',
   },
 
-  // --- NEW UI CONTROL ATTRIBUTES ---
+  // --- NEW UI: CONTROLS ---
   enableImmobiliser: {
-    name: 'UI: Enable Immobiliser Mode',
+    name: 'UI: Enable Immobiliser Controls',
     type: 'boolean',
   },
   enableOutput: {
-    name: 'UI: Enable Generic Output Mode',
+    name: 'UI: Enable Generic Output Controls',
     type: 'boolean',
   },
-  
-  // --- HOURS CONFIGURATION ---
+
+  // --- NEW UI: HOUR METER ---
   enableHours: {
-    name: 'UI: Show Speed + Hours',
+    name: 'UI: Show Hours (Next to Speed)',
     type: 'boolean',
   },
   enableHoursOnly: {
-    name: 'UI: Show Hours Only (No Speed)',
+    name: 'UI: Show Hours Only (Replace Speed)',
     type: 'boolean',
   },
   hoursSource: {
-    name: 'UI: Hour Meter Source (default: hours)',
+    name: 'UI: Hour Meter Data Source (default: hours)',
     type: 'string',
   },
 
-  // --- NEW UI INPUT CONFIGURATION ---
+  // --- NEW UI FUEL CONFIGURATION ---
+  fuelSource: {
+    name: 'UI: Fuel Level Data Source (default: fuelLevel)',
+    type: 'string',
+  },
+
+  // --- NEW UI: INPUTS & SENSORS ---
   input1Type: {
-    name: 'UI: Input 1 Type (bilge, fuel, battery, door)',
+    name: 'UI: Input 1 Icon Type (bilge, fuel, battery, door)',
     type: 'string',
   },
   input1Source: {
@@ -66,18 +72,11 @@ export default (t) => useMemo(() => ({
     type: 'string',
   },
   input2Type: {
-    name: 'UI: Input 2 Type (bilge, fuel, battery, door)',
+    name: 'UI: Input 2 Icon Type (bilge, fuel, battery, door)',
     type: 'string',
   },
   input2Source: {
     name: 'UI: Input 2 Data Source (default: in2)',
     type: 'string',
   },
-  
-  // --- NEW UI FUEL CONFIGURATION ---
-  fuelSource: {
-    name: 'UI: Fuel Data Source (default: fuelLevel)',
-    type: 'string',
-  },
-
 }), [t]);
