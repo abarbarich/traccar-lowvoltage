@@ -1,5 +1,5 @@
 import Button from '@mui/material/Button';
-import { Snackbar } from '@mui/material';
+import { Snackbar, Alert } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import { useTranslation } from './LocalizationProvider';
 import { useCatch } from '../../reactHelper';
@@ -16,6 +16,8 @@ const useStyles = makeStyles()((theme) => ({
     height: 'auto',
     marginTop: 0,
     marginBottom: 0,
+    fontWeight: 900, // Extra bold for the action button
+    textTransform: 'uppercase',
   },
 }));
 
@@ -36,13 +38,29 @@ const RemoveDialog = ({
       open={open}
       autoHideDuration={snackBarDurationLongMs}
       onClose={() => onResult(false)}
-      message={t('sharedRemoveConfirm')}
-      action={(
-        <Button size="small" className={classes.button} color="error" onClick={handleRemove}>
-          {t('sharedRemove')}
-        </Button>
-      )}
-    />
+      // Anchor matches your other notifications
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} 
+    >
+      <Alert
+        severity="warning" // Yellow/Orange warning color
+        onClose={() => onResult(false)}
+        action={
+          <Button 
+            size="small" 
+            className={classes.button} 
+            color="inherit" 
+            onClick={handleRemove}
+            variant="outlined" // outlined button inside the alert looks very technical
+            sx={{ borderWidth: '2px', '&:hover': { borderWidth: '2px' } }}
+          >
+            {t('sharedRemove')}
+          </Button>
+        }
+        sx={{ width: '100%', alignItems: 'center' }}
+      >
+        {t('sharedRemoveConfirm')}
+      </Alert>
+    </Snackbar>
   );
 };
 

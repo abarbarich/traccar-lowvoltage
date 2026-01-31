@@ -24,12 +24,17 @@ const ErrorHandler = () => {
 
   return (
     <>
-      <Snackbar open={Boolean(error) && !expanded}>
+      <Snackbar 
+        open={Boolean(error) && !expanded}
+        // --- NEW: MATCHING POSITION ---
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
         <Alert
           elevation={6}
           onClose={() => dispatch(errorsActions.pop())}
           severity="error"
-          variant="filled"
+          // --- CHANGED: Removed variant="filled" for a cleaner look ---
+          sx={{ width: '100%', fontWeight: 'bold' }} // --- NEW: BOLD TEXT ---
         >
           {displayMessage}
           {multiline && (
@@ -40,6 +45,7 @@ const ErrorHandler = () => {
           )}
         </Alert>
       </Snackbar>
+      
       <Dialog
         open={expanded}
         onClose={() => setExpanded(false)}
