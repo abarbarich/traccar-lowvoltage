@@ -226,11 +226,19 @@ const DeviceRow = ({ devices, index, style }) => {
     return { value: '0', unit: '' };
   })();
 
+  const formatHours = (ms) => {
+    if (!ms) return '0000.0';
+    const hours = parseFloat(ms) / 3600000;
+    const fixed = hours.toFixed(1); 
+    const [int, dec] = fixed.split('.');
+    const paddedInt = int.padStart(4, '0');
+    return `${paddedInt}.${dec}`;
+  };
+
   const hoursStat = (() => {
     // Only fetch if we actually need to display it
     if ((showHoursOnly || showBoth) && position?.attributes?.[hoursSource]) {
-      const raw = parseFloat(position.attributes[hoursSource]);
-      return (raw / 3600000).toFixed(1); // Convert ms to hours
+      return formatHours(position.attributes[hoursSource]);
     }
     return null;
   })();
@@ -258,7 +266,6 @@ const DeviceRow = ({ devices, index, style }) => {
   const renderInputBadge = (inputNum) => {
     const inputType = item.attributes?.[`input${inputNum}Type`];
     const inputSource = item.attributes?.[`input${inputNum}Source`] || `in${inputNum}`;
-    
     const rawVal = position?.attributes?.[inputSource];
     const active = rawVal === true || rawVal?.toString() === 'true';
 
@@ -397,9 +404,12 @@ const DeviceRow = ({ devices, index, style }) => {
                   fontSize: '1.2rem', 
                   fontWeight: 900, 
                   lineHeight: 1,
-                  color: isDataStale ? 'text.secondary' : 'text.primary'
+                  color: isDataStale ? 'text.secondary' : 'text.primary',
+                  // Apply specific monospace font stack matching StatusCard
+                  fontFamily: showHoursOnly ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
+                  fontVariantNumeric: showHoursOnly ? 'tabular-nums' : 'inherit'
                 }}>
-                  {showHoursOnly ? (hoursStat || '0.0') : speedStat.value}
+                  {showHoursOnly ? (hoursStat || '0000.0') : speedStat.value}
                 </Typography>
                 <Typography sx={{ fontSize: '0.6rem', ml: 0.2, color: 'text.secondary', textTransform: 'uppercase' }}>
                   {showHoursOnly ? 'HR' : speedStat.unit}
@@ -410,8 +420,14 @@ const DeviceRow = ({ devices, index, style }) => {
               {showBoth && hoursStat && (
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: '-2px' }}>
                   <AccessTimeIcon sx={{ fontSize: '0.6rem', color: 'text.secondary', mr: 0.2 }} />
-                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary' }}>
-                    {hoursStat} <span style={{ fontSize: '0.6rem' }}>HR</span>
+                  <Typography sx={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: 700, 
+                    color: 'text.secondary',
+                    fontFamily: '"Roboto Mono", "Courier New", monospace', // Match StatusCard
+                    fontVariantNumeric: 'tabular-nums' 
+                  }}>
+                    {hoursStat} <span style={{ fontSize: '0.6rem', fontFamily: 'Roboto, sans-serif' }}>HR</span>
                   </Typography>
                 </div>
               )}

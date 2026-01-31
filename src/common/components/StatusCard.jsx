@@ -184,6 +184,16 @@ const useStyles = makeStyles()((theme) => ({
     letterSpacing: '-2px',
     color: theme.palette.text.primary,
   },
+  // --- NEW: MECHANICAL HOUR METER STYLE ---
+  hourMeterValue: {
+    fontSize: '2.4rem', // Slightly smaller than speed to fit 6 chars
+    fontWeight: 700,
+    lineHeight: 1,
+    color: theme.palette.text.primary,
+    fontFamily: '"Roboto Mono", "Courier New", monospace', // Monospace for alignment
+    fontVariantNumeric: 'tabular-nums', // Forces numbers to be equal width
+    letterSpacing: '-1px',
+  },
   unitText: {
     fontSize: '0.9rem',
     fontWeight: 700,
@@ -376,19 +386,27 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const showHoursOnly = device?.attributes?.enableHoursOnly === true || isGenerator;
   const showBoth = !showHoursOnly && device?.attributes?.enableHours === true;
 
-  // --- CALCULATE VALUES ---
-  const speedDisplay = position ? formatSpeed(position.speed, speedUnit, t).split(' ') : ['0', ''];
-  
-  const hoursValue = ((showHoursOnly || showBoth) && position?.attributes?.[hoursSource]) 
-    ? (parseFloat(position.attributes[hoursSource]) / 3600000).toFixed(1)
-    : '0.0';
+  // --- HOUR METER FORMATTER ---
+  const formatHours = (ms) => {
+    if (!ms) return '0000.0';
+    const hours = parseFloat(ms) / 3600000;
+    const fixed = hours.toFixed(1); // "123.5"
+    const [int, dec] = fixed.split('.');
+    // Pad integer part to at least 4 digits
+    const paddedInt = int.padStart(4, '0');
+    return `${paddedInt}.${dec}`;
+  };
 
-  // Status for Immobiliser Mode
+  const rawHours = position?.attributes?.[hoursSource];
+  const hoursValue = formatHours(rawHours);
+
+  // Speed Calc
+  const speedDisplay = position ? formatSpeed(position.speed, speedUnit, t).split(' ') : ['0', ''];
+
   const isImmobilised = hasImmobiliserAttr 
     ? position?.attributes?.immobiliser?.toString() === 'true'
     : isOut1Active;
 
-  // --- RESET STATE ON DEVICE CHANGE ---
   useEffect(() => {
     setPendingAction(null);
     setCommandLoading(false);
@@ -451,7 +469,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
       <Tooltip title={`Fuel Level: ${level}%`}>
         <div 
           className={cx(classes.badgeBase, classes.statusBadge, { [classes.fuelAlert]: isLow })}
-          // Removed manual marginTop here for better row alignment
         >
           <LocalGasStationIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
           {level.toFixed(0)}%
@@ -463,7 +480,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const renderInputBadge = (inputNum) => {
     const inputType = device?.attributes?.[`input${inputNum}Type`];
     const currentSource = inputNum === 1 ? input1Source : input2Source;
-    
     const rawVal = position?.attributes?.[currentSource];
     const active = rawVal === true || rawVal?.toString() === 'true'; 
 
@@ -545,14 +561,12 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
   const isPowerCut = powerValue !== null && powerValue < 1.0;
 
-  // --- LIST CLEANER ---
   const hiddenKeys = [
     'power', 'ignition', 'motion', 'tow', 
     fuelSource, 
     input1Source, 
     input2Source, 
   ];
-  
   if (deviceHasImmobiliser) hiddenKeys.push('immobiliser', 'out1');
   if (deviceHasOutput) hiddenKeys.push('out1');
   if (showHoursOnly || showBoth) hiddenKeys.push(hoursSource);
@@ -560,10 +574,7 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
   return (
     <>
       {(device || position) && (
-        <Card 
-          elevation={0} 
-          className={classes.card}
-        >
+        <Card elevation={0} className={classes.card}>
           <div className={classes.header}>
             <Typography variant="subtitle2" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
               {device?.name || t('sharedUnknown')}
@@ -587,8 +598,9 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
               {/* --- LEFT COL: SPEED & TIME --- */}
               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 
+                {/* --- HERO STAT --- */}
                 <Box sx={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
-                  <Typography className={classes.speedValue}>
+                  <Typography className={showHoursOnly ? classes.hourMeterValue : classes.speedValue}>
                     {showHoursOnly ? hoursValue : speedDisplay[0].replace(/\.\d+/, '')}
                   </Typography>
                   <Typography className={classes.unitText}>
@@ -596,10 +608,19 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                   </Typography>
                 </Box>
 
+                {/* --- SECONDARY STAT --- */}
                 {showBoth && (
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                     <AccessTimeIcon sx={{ fontSize: '0.8rem', color: 'text.secondary', mr: 0.5 }} />
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: 700, 
+                        color: 'text.primary',
+                        fontFamily: '"Roboto Mono", "Courier New", monospace', // FIXED: Added Courier New
+                        fontVariantNumeric: 'tabular-nums' 
+                      }}
+                    >
                       {hoursValue} HR
                     </Typography>
                   </Box>
@@ -625,11 +646,9 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                   </Avatar>
                 </Tooltip>
 
-                {/* 2. BOTTOM: BADGE ROW (Fuel left of Voltage) */}
+                {/* 2. BOTTOM: BADGE ROW */}
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '4px' }}>
-                  
                   {renderFuelBadge()}
-
                   <Tooltip title={isPowerCut ? "Power Disconnected!" : "External Power"}>
                     <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.voltageAlert]: isPowerCut })}>
                       {isPowerCut ? (
@@ -660,7 +679,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                        <span>OUTPUT 1 ON</span>
                     </div>
                   )}
-                  
                   {!deviceHasImmobiliser && !deviceHasOutput && isOut1Active && (
                      <div className={cx(classes.badgeBase, classes.out1Active)}>
                        <span>OUTPUT 1 ON</span>
@@ -754,7 +772,6 @@ const StatusCard = ({ deviceId, position: positionProp, onClose, disableActions 
                     </Button>
                   )
                 )}
-
               </div>
             )}
           </div>
