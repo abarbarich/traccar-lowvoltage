@@ -18,6 +18,15 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import WaterIcon from '@mui/icons-material/Water';
 import BoltIcon from '@mui/icons-material/Bolt';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import BatteryStdIcon from '@mui/icons-material/BatteryStd';
+
+// Activity Icons
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
+import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
+import DirectionsBikeIcon from '@mui/icons-material/DirectionsBike';
+import AccessibilityNewIcon from '@mui/icons-material/AccessibilityNew'; 
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline'; 
 
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -123,6 +132,11 @@ const useStyles = makeStyles()((theme) => ({
     fontSize: '0.65rem',
     height: '18px',
   },
+  gaugeBadge: {
+    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+    borderColor: theme.palette.divider,
+    color: theme.palette.text.primary,
+  },
   statusBadge: {
     minWidth: '52px',
     width: '52px', 
@@ -180,6 +194,25 @@ const useStyles = makeStyles()((theme) => ({
     backgroundColor: theme.palette.action.disabledBackground,
     color: theme.palette.action.disabled,
   },
+  activityMove: {
+    backgroundColor: theme.palette.info.main,
+    color: theme.palette.info.contrastText,
+    borderColor: theme.palette.info.dark,
+  },
+  activityRun: {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    borderColor: theme.palette.success.dark,
+  },
+  activityStill: {
+    backgroundColor: theme.palette.action.disabledBackground,
+    color: theme.palette.text.secondary,
+    borderColor: theme.palette.divider,
+  },
+  activityUnknown: {
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.warning.contrastText,
+  },
   statusText: {
     display: 'block',
     fontSize: '0.75rem',
@@ -196,27 +229,18 @@ const DeviceRow = ({ devices, index, style }) => {
   const item = devices[index];
   const position = useSelector((state) => state.session.positions[item.id]);
   
-  // --- DYNAMIC SPEED UNIT LOGIC ---
   const defaultUnit = useAttributePreference('speedUnit', 'kn');
-  
   const isBoat = ['boat', 'ship'].includes(item.category);
-  
   const speedUnit = isBoat 
     ? (position?.attributes?.ignition ? 'kn' : 'kmh') 
     : defaultUnit;
-  // --------------------------------
 
   const isDataStale = item.lastUpdate ? dayjs().diff(dayjs(item.lastUpdate), 'minute') > 10 : true;
-
-  // --- CONFIGURATION CHECKS ---
   const hoursSource = item.attributes?.hoursSource || 'hours';
   const isGenerator = item.category === 'generator';
-  // "Hours Only" overrides everything if true (or if category is generator)
   const showHoursOnly = item.attributes?.enableHoursOnly === true || isGenerator;
-  // "Show Both" only active if we aren't already in "Hours Only" mode
   const showBoth = !showHoursOnly && item.attributes?.enableHours === true;
 
-  // --- STAT CALCULATIONS ---
   const speedStat = (() => {
     if (position && position.hasOwnProperty('speed')) {
       const formatted = formatSpeed(position.speed, speedUnit, t).replace(/\.\d+/, '');
@@ -236,7 +260,6 @@ const DeviceRow = ({ devices, index, style }) => {
   };
 
   const hoursStat = (() => {
-    // Only fetch if we actually need to display it
     if ((showHoursOnly || showBoth) && position?.attributes?.[hoursSource]) {
       return formatHours(position.attributes[hoursSource]);
     }
@@ -245,19 +268,17 @@ const DeviceRow = ({ devices, index, style }) => {
 
   const renderFuelBadge = () => {
     const fuelSource = item.attributes?.fuelSource || 'fuelLevel';
-    
     if (!position?.attributes || !position.attributes.hasOwnProperty(fuelSource)) {
       return null;
     }
-
     const level = parseFloat(position.attributes[fuelSource]); 
     const isLow = (position.attributes.hasOwnProperty('lowFuel') && position.attributes.lowFuel) || level < 15;
-
     return (
       <Tooltip title={`Fuel Level: ${level}%`}>
-        <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.fuelAlert]: isLow })}>
+        <div className={cx(classes.badgeBase, classes.statusBadge, isLow ? classes.fuelAlert : classes.gaugeBadge)}>
           <LocalGasStationIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
-          {level.toFixed(0)}%
+          <span>{level.toFixed(0)}</span>
+          <span style={{ paddingLeft: '1px', opacity: 0.7 }}>%</span>
         </div>
       </Tooltip>
     );
@@ -274,7 +295,6 @@ const DeviceRow = ({ devices, index, style }) => {
     const offClassBase = isInput1 ? classes.input1Dull : classes.input2Dull;
     const critClassBase = isInput1 ? classes.input1Critical : classes.input2Critical;
 
-    // Legacy Fallback
     if (!inputType) {
       if (active) {
         return (
@@ -337,6 +357,54 @@ const DeviceRow = ({ devices, index, style }) => {
     );
   };
 
+  const renderActivityBadge = () => {
+    const activity = position?.attributes?.activity;
+    if (!activity) return null;
+
+    let icon = <HelpOutlineIcon sx={{ fontSize: '0.8rem' }} />;
+    let label = activity.replace('_', ' ').toUpperCase();
+    let styleClass = classes.activityUnknown;
+
+    switch (activity) {
+      case 'in_vehicle':
+        icon = <DirectionsCarIcon sx={{ fontSize: '0.8rem' }} />;
+        styleClass = classes.activityMove; 
+        label = "DRIVING";
+        break;
+      case 'on_bicycle':
+        icon = <DirectionsBikeIcon sx={{ fontSize: '0.8rem' }} />;
+        styleClass = classes.activityMove;
+        label = "CYCLING";
+        break;
+      case 'running':
+        icon = <DirectionsRunIcon sx={{ fontSize: '0.8rem' }} />;
+        styleClass = classes.activityRun; 
+        break;
+      case 'on_foot':
+      case 'walking':
+        icon = <DirectionsWalkIcon sx={{ fontSize: '0.8rem' }} />;
+        styleClass = classes.activityRun;
+        label = "WALKING";
+        break;
+      case 'still':
+        icon = <AccessibilityNewIcon sx={{ fontSize: '0.8rem' }} />;
+        styleClass = classes.activityStill; 
+        break;
+      case 'unknown':
+      default:
+        styleClass = classes.activityUnknown; 
+        break;
+    }
+
+    return (
+       <Tooltip title={`Phone Activity: ${label}`}>
+         <div className={cx(classes.badgeBase, styleClass)} style={{ padding: '0 4px', minWidth: 'unset' }}>
+           {icon}
+         </div>
+       </Tooltip>
+    );
+  };
+
   const hasImmobiliserAttr = position?.attributes?.hasOwnProperty('immobiliser');
   const isOut1Active = position?.attributes?.out1?.toString() === 'true';
   const isImmobilised = hasImmobiliserAttr 
@@ -359,16 +427,52 @@ const DeviceRow = ({ devices, index, style }) => {
     if (deviceHasOutput && isOut1Active) {
       return <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>;
     }
-    // Fallback if neither config present but data exists
     if (!deviceHasImmobiliser && !deviceHasOutput && isOut1Active) {
       return <div className={cx(classes.badgeBase, classes.out1Active)}>OUT1</div>;
     }
     return null;
   };
 
-  const rawPower = position?.attributes?.power;
-  const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
-  const isPowerCut = powerValue !== null && powerValue < 1.0;
+  const renderPowerBadge = () => {
+    if (item.category === 'person') {
+      const batteryLevel = position?.attributes?.batteryLevel;
+      if (batteryLevel !== undefined && batteryLevel !== null) {
+        const isLowBat = batteryLevel < 20; 
+        return (
+           <Tooltip title={`Phone Battery: ${batteryLevel}%`}>
+             <div className={cx(classes.badgeBase, classes.statusBadge, isLowBat ? classes.voltageAlert : classes.gaugeBadge)}>
+               <BatteryStdIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+               <span>{batteryLevel}</span>
+               <span style={{ paddingLeft: '1px', opacity: 0.7 }}>%</span>
+             </div>
+           </Tooltip>
+        );
+      }
+      return null;
+    }
+
+    const rawPower = position?.attributes?.power;
+    const powerValue = (rawPower !== undefined && rawPower !== null) ? parseFloat(rawPower) : null;
+    const isPowerCut = powerValue !== null && powerValue < 1.0;
+
+    return (
+      <Tooltip title={isPowerCut ? "Power Disconnected!" : "External Power"}>
+        <div className={cx(classes.badgeBase, classes.statusBadge, isPowerCut ? classes.voltageAlert : classes.gaugeBadge)}>
+          {isPowerCut ? (
+            <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+          ) : (
+            <BoltIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
+          )}
+          {powerValue !== null ? (
+            <>
+              <span>{powerValue.toFixed(1)}</span>
+              <span style={{ paddingLeft: '1px', opacity: 0.7 }}>V</span>
+            </>
+          ) : "--.-V"}
+        </div>
+      </Tooltip>
+    );
+  };
 
   return (
     <div style={style}>
@@ -395,17 +499,13 @@ const DeviceRow = ({ devices, index, style }) => {
 
         {position && (
           <div className={classes.rightColumn}>
-            {/* --- UPDATED HERO ROW --- */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              
-              {/* PRIMARY STAT: Shows Speed normally, OR Hours if "HoursOnly" is set */}
               <div className={classes.speedRow}>
                 <Typography sx={{ 
                   fontSize: '1.2rem', 
                   fontWeight: 900, 
                   lineHeight: 1,
                   color: isDataStale ? 'text.secondary' : 'text.primary',
-                  // Apply specific monospace font stack matching StatusCard
                   fontFamily: showHoursOnly ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
                   fontVariantNumeric: showHoursOnly ? 'tabular-nums' : 'inherit'
                 }}>
@@ -416,7 +516,6 @@ const DeviceRow = ({ devices, index, style }) => {
                 </Typography>
               </div>
 
-              {/* SECONDARY STAT: Shows Hours only if "Show Both" is active */}
               {showBoth && hoursStat && (
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: '-2px' }}>
                   <AccessTimeIcon sx={{ fontSize: '0.6rem', color: 'text.secondary', mr: 0.2 }} />
@@ -424,7 +523,7 @@ const DeviceRow = ({ devices, index, style }) => {
                     fontSize: '0.75rem', 
                     fontWeight: 700, 
                     color: 'text.secondary',
-                    fontFamily: '"Roboto Mono", "Courier New", monospace', // Match StatusCard
+                    fontFamily: '"Roboto Mono", "Courier New", monospace',
                     fontVariantNumeric: 'tabular-nums' 
                   }}>
                     {hoursStat} <span style={{ fontSize: '0.6rem', fontFamily: 'Roboto, sans-serif' }}>HR</span>
@@ -433,25 +532,16 @@ const DeviceRow = ({ devices, index, style }) => {
               )}
             </div>
 
-            {/* Row 2: Badges */}
             <div className={classes.iconRow}>
+              {/* Organized for logic: Inputs -> Output -> Fuel -> Activity -> Power */}
               {renderInputBadge(1)}
               {renderInputBadge(2)}
-              
               {renderOutputBadge()}
-
               {renderFuelBadge()}
               
-              <Tooltip title={isPowerCut ? "Power Disconnected!" : "External Power"}>
-                <div className={cx(classes.badgeBase, classes.statusBadge, { [classes.voltageAlert]: isPowerCut })}>
-                  {isPowerCut ? (
-                    <PowerOffIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
-                  ) : (
-                    <BoltIcon sx={{ fontSize: '0.7rem', mr: 0.2 }} />
-                  )}
-                  {powerValue !== null ? `${powerValue.toFixed(1)}V` : "--.-V"}
-                </div>
-              </Tooltip>
+              {/* Grouped: Activity then Battery/Power */}
+              {renderActivityBadge()} 
+              {renderPowerBadge()}
             </div>
           </div>
         )}
